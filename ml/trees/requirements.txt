@@ -1,0 +1,4 @@
+# ml/trees: decision-tree analysis on top of the YOLO ball detector.
+# ultralytics (with numpy, opencv, pillow) comes from ml/requirements.txt.
+# Tested with scikit-learn 1.9.1 in ml/.venv (Python 3.14).
+scikit-learn>=1.3
