@@ -1,0 +1,61 @@
+{
+  "_generator": "https://github.com/Malek1414/Malek1414/blob/main/tools/readme_art.py",
+  "title": "FollowCam",
+  "tagline": "The €20 robot cameraman for the tripod you already own.",
+  "chips": ["3D-printed pan pod", "*OpenCV ball tracking", "Arduino servo", "iOS app", "YOLO stats"],
+  "footer_left": "Malek Hassan · Berlin · 2026",
+  "footer_right": "CODE University hackathon · Python · Swift · Arduino",
+  "alt": "FollowCam: a pixel camcorder on a tripod that tilts to follow a bouncing basketball",
+  "accent": "teal",
+  "colors": {
+    "teal": ["#2dd4bf", "#0f766e"],
+    "ink": ["#0d1117", "#0d1117"],
+    "grey": ["#6e7681", "#57606a"],
+    "white": ["#f0f3f6", "#ffffff"],
+    "orange": ["#fb8c3c", "#d4570f"],
+    "red": ["#ff4b3e", "#cf222e"]
+  },
+  "legend": {
+    "C": ["teal", "head"],
+    "Q": ["grey", "head"],
+    "K": ["grey", "head"],
+    "L": ["ink", "head"],
+    "h": ["white", "head"],
+    "r": ["red", "head"],
+    "P": ["grey", "tripod"],
+    "B": ["orange", "ball"],
+    "b": ["ink", "ball"],
+    "t": ["teal", "ball"]
+  },
+  "motions": {
+    "head": "rock",
+    "ball": "bounce"
+  },
+  "origins": {
+    "head": "50% 100%"
+  },
+  "sprite": [
+    "..............................",
+    "...QQQQQQ.....................",
+    "...Q....Q.....................",
+    ".CCCCCCCCCCCC.................",
+    ".CrrCCCKKKKCC.................",
+    ".CCCCCKLLLhKC.................",
+    ".CCCCCKLLLLKC.................",
+    ".CCCCCKLLLLKC.................",
+    ".CCCCCKLLLLKC.................",
+    ".CCCCCCKKKKCC.....tt........tt",
+    ".CCCCCCCCCCCC.....t..........t",
+    ".....PPPP.............BBBB....",
+    ".....PPPP............BBbBbB...",
+    "......PP............BBBbBBbB..",
+    "......PP............bbbbbbbb..",
+    "....PPPPPP..........BBBbBBbB..",
+    "...PP.PP.PP.........BBBbBBbB..",
+    "...PP.PP.PP..........BBbBbB...",
+    "..PP..PP..PP..........BBBB....",
+    ".PP...PP...PP.....t..........t",
+    ".PP...PP...PP.....tt........tt",
+    "PP..........PP................"
+  ]
+}
