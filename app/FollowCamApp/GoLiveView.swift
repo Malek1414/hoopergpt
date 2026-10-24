@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Live tab: dress the stream (teams, a skin for the score bar), then send
-// it to YouTube, Twitch or any RTMP server. Sending is backend work, so
-// the button stays off; the stream key lives in the Keychain only.
+// Live tab: where the stream goes, who plays, how the score bar looks.
+// Sending is backend work and not built yet, so there is no send button;
+// the stream key lives in the Keychain only.
 
 struct GoLiveView: View {
     enum Platform: String, CaseIterable, Identifiable {
@@ -40,24 +40,26 @@ struct GoLiveView: View {
         NavigationStack {
             List {
                 Section {
-                    StreamPreview(skin: skin, home: home, away: away, radius: 14)
+                    StreamPreview(skin: skin, home: home, away: away)
                         .animation(.spring(duration: 0.35), value: selectedSkin)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
-                Section("Teams") { teamsRow }
-                Section("Overlay") { skinRow }
                 destination
                 Section {
-                    PrimaryButton(title: "Go Live", enabled: false) {}
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
+                    teamsRow
+                    NavigationLink {
+                        SkinPicker(home: home, away: away, selected: $selectedSkin,
+                                   owns: owns, buy: { buying = $0 })
+                    } label: {
+                        LabeledContent("Score Bar", value: skin.name)
+                    }
                 }
             }
             .listStyle(.insetGrouped)
             .listSectionSpacing(.compact)
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Go Live")
+            .navigationTitle("Live")
         }
         .tint(.pla)
         .sheet(item: $buying) { skin in
@@ -103,21 +105,6 @@ struct GoLiveView: View {
 
     // MARK: skins
 
-    private var skinRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 14) {
-                ForEach(Skin.all) { s in
-                    SkinCard(skin: s, home: home, away: away, owned: owns(s), selected: s.id == selectedSkin) {
-                        if owns(s) { selectedSkin = s.id } else { buying = s }
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
-        .listRowInsets(EdgeInsets())
-    }
-
     private func owns(_ s: Skin) -> Bool {
         s.price == nil || ownedSkins.split(separator: ",").contains(Substring(s.id))
     }
@@ -134,10 +121,7 @@ struct GoLiveView: View {
             Picker("Platform", selection: $platform) {
                 ForEach(Platform.allCases) { Text($0.rawValue).tag($0) }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
+            .pickerStyle(.navigationLink)
             .onChange(of: platform) { server = platform.defaultServer }
 
             LabeledContent("Server") {
@@ -189,62 +173,67 @@ private struct StreamPreview: View {
     let skin: Skin
     let home: Team
     let away: Team
-    var radius: CGFloat = 12
-    var scale: CGFloat = 0.92
 
     var body: some View {
         CourtLines()
             .aspectRatio(16 / 9, contentMode: .fit)
             .overlay(alignment: .top) {
-                ScoreBar(skin: skin, home: home.name.uppercased(), away: away.name.uppercased(),
+                ScoreBar(skin: skin, home: home.name, away: away.name,
                          homeColor: Color(hex: home.color) ?? .white, awayColor: Color(hex: away.color) ?? .muted,
                          homeLogo: TeamStore.logo(home.id), awayLogo: TeamStore.logo(away.id),
-                         scale: scale)
-                    .padding(.top, 12 * scale)
+                         scale: 0.92)
+                    .padding(.top, 11)
                     .id(skin.id)
                     .transition(.opacity)
             }
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .stroke(Color.white.opacity(0.08)))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
-private struct SkinCard: View {
-    let skin: Skin
+/// The skin list: one preview of the chosen skin, then plain rows.
+private struct SkinPicker: View {
     let home: Team
     let away: Team
-    let owned: Bool
-    let selected: Bool
-    let tap: () -> Void
+    @Binding var selected: String
+    let owns: (Skin) -> Bool
+    let buy: (Skin) -> Void
 
     var body: some View {
-        Button(action: tap) {
-            VStack(alignment: .leading, spacing: 8) {
-                StreamPreview(skin: skin, home: home, away: away, radius: 10, scale: 0.44)
-                    .frame(width: 156)
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(selected ? Color.pla : Color.clear, lineWidth: 2.5))
-                HStack(spacing: 4) {
-                    Text(skin.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if selected {
-                        Image(systemName: "checkmark")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.tint)
-                    } else {
-                        Text(owned ? "Owned" : skin.price ?? "")
-                            .font(.subheadline)
-                            .foregroundStyle(owned ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+        List {
+            Section {
+                StreamPreview(skin: Skin.find(selected), home: home, away: away)
+                    .animation(.spring(duration: 0.35), value: selected)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                ForEach(Skin.all) { s in
+                    Button {
+                        if owns(s) { selected = s.id } else { buy(s) }
+                    } label: {
+                        HStack(spacing: 12) {
+                            SkinSwatch(skin: s)
+                            Text(s.name).foregroundStyle(.primary)
+                            Spacer()
+                            if s.id == selected {
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.tint)
+                            } else if !owns(s), let price = s.price {
+                                Text(price).foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(s.id == selected ? .isSelected : [])
                 }
-                .frame(width: 156)
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(.compact)
+        .navigationTitle("Score Bar")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -259,7 +248,7 @@ private struct BuySheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                StreamPreview(skin: skin, home: home, away: away, radius: 14)
+                StreamPreview(skin: skin, home: home, away: away)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(skin.name).font(.title.bold())
                     Text("Score bar for your stream. One-time purchase.")

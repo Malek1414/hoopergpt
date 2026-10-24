@@ -111,11 +111,11 @@ struct ScoreBar: View {
     @ViewBuilder
     private func team(_ name: String, _ score: Int, _ color: Color, _ logo: UIImage?, trailing: Bool) -> some View {
         let strip = Rectangle().fill(color).frame(width: 4 * s)
-        let label = Text(name)
+        let label = Text(Self.code(name))
             .font(.system(size: 12 * s, weight: .bold))
             .tracking(0.4 * s)
             .lineLimit(1)
-            .frame(maxWidth: 70 * s, alignment: trailing ? .trailing : .leading)
+            .frame(width: 44 * s, alignment: trailing ? .trailing : .leading)
             .padding(.horizontal, 8 * s)
         let points = Text("\(score)")
             .font(.system(size: 18 * s, weight: .heavy))
@@ -138,6 +138,18 @@ struct ScoreBar: View {
         .frame(maxHeight: .infinity)
     }
 
+    /// Broadcast-style team code: a name of up to 4 letters stays, two or
+    /// more words give their initials (up to 3), else the first 3 letters.
+    static func code(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count <= 4 { return trimmed.uppercased() }
+        let words = trimmed.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        if words.count >= 2 {
+            return String(words.prefix(3).compactMap(\.first)).uppercased()
+        }
+        return String(trimmed.prefix(3)).uppercased()
+    }
+
     @ViewBuilder
     private func mark(_ logo: UIImage?) -> some View {
         if let logo {
@@ -158,5 +170,24 @@ struct Slant: Shape {
             p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
             p.closeSubpath()
         }
+    }
+}
+
+/// A small chip of a skin for list rows: bar colour, clock cell, outline.
+struct SkinSwatch: View {
+    let skin: Skin
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        HStack(spacing: 0) {
+            Color.clear
+            Rectangle().fill(skin.clockFill).frame(width: 10)
+            Color.clear
+        }
+        .frame(width: 40, height: 22)
+        .background(skin.bar)
+        .clipShape(shape)
+        .overlay(shape.stroke(skin.outline, lineWidth: 1))
+        .accessibilityHidden(true)
     }
 }
