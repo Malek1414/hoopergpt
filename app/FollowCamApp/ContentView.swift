@@ -183,7 +183,7 @@ struct ContentView: View {
                         .padding(.horizontal, 16).frame(height: 38)
                         .glass(19)
                 }
-                .buttonStyle(PressScale())
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
@@ -205,7 +205,7 @@ struct ContentView: View {
             .padding(.horizontal, 14).frame(height: 38)
             .glass(19)
         }
-        .buttonStyle(PressScale())
+        .buttonStyle(.plain)
         .accessibilityValue(on ? "On" : "Off")
     }
 
@@ -518,7 +518,7 @@ struct RecordButton: View {
             .contentShape(Circle())
             .animation(.spring(duration: 0.3), value: isRecording)
         }
-        .buttonStyle(PressScale())
+        .buttonStyle(.plain)
         .accessibilityLabel(isRecording ? "Stop recording" : "Record")
     }
 }

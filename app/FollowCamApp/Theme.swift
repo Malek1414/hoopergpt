@@ -7,10 +7,11 @@ import UIKit
 
 extension Color {
     static let pla = Color(red: 0.92, green: 0.39, blue: 0.08)
-    static let ink = Color.black
-    static let surface = Color(white: 0.055)
-    static let hairline = Color(white: 0.13)
-    static let muted = Color(white: 0.56)
+    // System colours, so the app follows iOS (contrast settings included).
+    static let ink = Color(.systemBackground)
+    static let surface = Color(.secondarySystemBackground)
+    static let hairline = Color(.separator)
+    static let muted = Color(.secondaryLabel)
 
     /// "#rrggbb" from state.json; nil for anything else.
     init?(hex: String) {
@@ -25,20 +26,41 @@ extension Color {
 // MARK: - type: SF Pro, like the rest of iOS
 
 extension Font {
-    /// Display: SF Pro, heavy, for numbers, names and titles.
-    static func wide(_ size: CGFloat, _ weight: CGFloat = 700) -> Font {
-        .system(size: size, weight: weight >= 850 ? .heavy : (weight >= 650 ? .bold : .semibold))
+    /// The iOS text style closest to a point size, so text grows with the
+    /// user's Dynamic Type setting instead of staying fixed.
+    private static func style(for size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case 34...: return .largeTitle
+        case 28..<34: return .title
+        case 22..<28: return .title2
+        case 20..<22: return .title3
+        case 17..<20: return .body
+        case 16..<17: return .callout
+        case 15..<16: return .subheadline
+        case 13..<15: return .footnote
+        case 12..<13: return .caption
+        default: return .caption2
+        }
     }
 
-    /// Text: SF Pro, for sentences and labels.
-    static func text(_ size: CGFloat, _ weight: CGFloat = 400) -> Font {
-        let w: Font.Weight = switch weight {
-        case ..<450: .regular
-        case ..<575: .medium
-        case ..<675: .semibold
-        default: .bold
+    private static func weight(_ w: CGFloat) -> Font.Weight {
+        switch w {
+        case ..<450: return .regular
+        case ..<575: return .medium
+        case ..<675: return .semibold
+        case ..<850: return .bold
+        default: return .heavy
         }
-        return .system(size: size, weight: w)
+    }
+
+    /// Display: bold SF Pro for numbers, names and titles; scales with Dynamic Type.
+    static func wide(_ size: CGFloat, _ weight: CGFloat = 700) -> Font {
+        .system(style(for: size), weight: Self.weight(max(weight, 600)))
+    }
+
+    /// Text: SF Pro for sentences and labels; scales with Dynamic Type.
+    static func text(_ size: CGFloat, _ weight: CGFloat = 400) -> Font {
+        .system(style(for: size), weight: Self.weight(weight))
     }
 }
 
@@ -73,14 +95,6 @@ struct PrimaryButton: View {
     }
 }
 
-/// Buttons give way under the thumb instead of just dimming.
-struct PressScale: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.spring(duration: 0.2), value: configuration.isPressed)
-    }
-}
 
 /// Glass for anything that floats over the picture: Liquid Glass on iOS 26,
 /// a dark material before that.

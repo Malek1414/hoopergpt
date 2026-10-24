@@ -124,7 +124,7 @@ struct WatchView: View {
             .background(.ultraThinMaterial, in: Capsule())
             .padding(.trailing, 8)
         }
-        .buttonStyle(PressScale())
+        .buttonStyle(.plain)
         .accessibilityLabel("Show stats")
     }
 
