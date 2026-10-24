@@ -23,6 +23,12 @@
   <img alt="CAD from a Blender script" src="https://img.shields.io/badge/CAD-Blender_script-e87d0d?style=flat-square&logo=blender&logoColor=white">
 </p>
 
+<p align="center">
+  <a href="https://github.com/Malek1414/hoopergpt/releases/download/devday-berlin-pitch/HooperGPT-pitch.mp4"><b>Watch the HooperGPT demo video (DevDay Hackathon Berlin, 88 s)</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Malek1414/hoopergpt/releases/tag/devday-berlin-pitch">Release page</a>
+</p>
+
 **A 3D-printed pan pod that turns the tripod you already own into an auto-tracking sports camera.**
 FollowCam replaces the head of an ordinary tripod and steers a phone to follow the ball, for about
 €20 in parts instead of a €2,000+ Veo or Pixellot unit. The same camera then keeps the stats: a
