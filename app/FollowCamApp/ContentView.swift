@@ -184,6 +184,14 @@ struct ContentView: View {
                              ?? (heart.scanning ? "Heart rate, searching" : "Heart rate, off")) {
                 if heart.isActive { heart.stop() } else { heart.startScan() }
             }
+            // The live pulse is information, so it stays on screen.
+            if let bpm = heart.bpm {
+                Text("\(bpm)")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .accessibilityHidden(true)
+            }
             Spacer()
             if tracker.isTracking {
                 Button {
