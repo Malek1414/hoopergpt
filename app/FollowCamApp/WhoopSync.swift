@@ -53,6 +53,7 @@ enum Keychain {
 }
 
 enum KeychainKey {
+    static let rtmpStreamKey = "live.rtmpStreamKey"
     static let whoopClientID = "whoop.clientID"
     static let whoopClientSecret = "whoop.clientSecret"
     static let whoopAccessToken = "whoop.accessToken"
