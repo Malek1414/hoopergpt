@@ -5,12 +5,6 @@ import SwiftUI
 // pan scale with a live needle, monospaced telemetry, AF-corner target box.
 // Orange = the printed parts' PLA; blue = servo; red = REC only.
 
-private extension Color {
-    static let pla = Color(red: 0.92, green: 0.39, blue: 0.08)
-    static let servo = Color(red: 0.15, green: 0.38, blue: 0.90)
-    static let chrome = Color(white: 0.55)
-}
-
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @StateObject private var pan = PanController()
