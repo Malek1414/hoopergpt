@@ -244,15 +244,17 @@ struct GameDetailView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(width: 76)
+        .frame(width: 68)
     }
 
     private func score(_ value: Int?, winning: Bool) -> some View {
+        // Scores never give way: on an SE the names shrink first.
         Text(value.map(String.init) ?? "-")
             .font(.system(size: 40, weight: .bold))
             .monospacedDigit()
             .foregroundStyle(winning || scores == nil ? .primary : .secondary)
             .lineLimit(1)
-            .minimumScaleFactor(0.6)
+            .fixedSize()
+            .layoutPriority(1)
     }
 }

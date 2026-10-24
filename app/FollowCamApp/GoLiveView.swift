@@ -48,18 +48,16 @@ struct GoLiveView: View {
                 Section("Teams") { teamsRow }
                 Section("Overlay") { skinRow }
                 destination
+                Section {
+                    PrimaryButton(title: "Go Live", enabled: false) {}
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
             }
             .listStyle(.insetGrouped)
             .listSectionSpacing(.compact)
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Go Live")
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                PrimaryButton(title: "Go Live", enabled: false) {}
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    .padding(.bottom, 10)
-                    .background(.bar)
-            }
         }
         .tint(.pla)
         .sheet(item: $buying) { skin in
@@ -92,7 +90,10 @@ struct GoLiveView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
+            .contentShape(Rectangle())
         }
+        // A list row, not a tinted link: the label stays white.
+        .buttonStyle(.plain)
     }
 
     private func reloadTeams() {

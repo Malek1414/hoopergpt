@@ -193,7 +193,7 @@ private struct WelcomePage: View {
                 Feature(symbol: "video.fill", title: "Films the Game",
                         text: "The camera turns with the ball, so you can coach instead of filming.")
                 Feature(symbol: "dot.radiowaves.left.and.right", title: "Live with the Score",
-                        text: "Stream the game to your Mac with the score on screen.")
+                        text: "Watch the game live with the score on screen.")
                 Feature(symbol: "person.text.rectangle", title: "Stats per Player",
                         text: "Shots and points for every number on your roster.")
             }
