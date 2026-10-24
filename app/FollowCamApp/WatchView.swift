@@ -30,7 +30,7 @@ struct WatchView: View {
                     .frame(maxWidth: .infinity)
                     .overlay(alignment: .topLeading) { LiveDot(link: feed.link).padding(12) }
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 28) {
                             teams
                             if let state = feed.state, state.teams.count == 2 {
                                 StatsBlock(state: state, home: teams.home, away: teams.away)
@@ -38,9 +38,11 @@ struct WatchView: View {
                                 waiting
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 20)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                        .padding(.bottom, 24)
                     }
+                    .background(Color(.systemBackground))
                 }
             }
         }
@@ -56,8 +58,8 @@ struct WatchView: View {
     }
 
     private var waiting: some View {
-        Text("Score and players show up once the Mac sends a game.")
-            .font(.text(16)).foregroundColor(.muted)
+        ContentUnavailableView("No Game Yet", systemImage: "sportscourt",
+                               description: Text("Score and players show up once the Mac sends a game."))
     }
 
     // MARK: sideways: full picture, pull-in drawer
@@ -119,7 +121,8 @@ struct WatchView: View {
             .foregroundColor(.white)
             .frame(width: 44)
             .padding(.vertical, 16)
-            .glass(16)
+            .background(.ultraThinMaterial, in: Capsule())
+            .padding(.trailing, 8)
         }
         .buttonStyle(PressScale())
         .accessibilityLabel("Show stats")
@@ -149,8 +152,9 @@ struct WatchView: View {
                 .padding(.trailing, 16)
             }
         }
-        .glass(22)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .padding(.vertical, 8)
+        .padding(.trailing, 8)
     }
 }
 
@@ -236,8 +240,8 @@ struct TeamsView: View {
             side(home, score: state?.teams.first?.score)
             VStack(spacing: 2) {
                 if let state {
-                    Text("Q\(state.period)").font(.text(13, 600)).foregroundColor(.muted)
-                    Text(state.clock).font(.text(15, 650)).foregroundColor(.white).monospacedDigit()
+                    Text("Q\(state.period)").font(.caption.weight(.semibold)).foregroundColor(.secondary)
+                    Text(state.clock).font(.subheadline.weight(.semibold)).foregroundColor(.white).monospacedDigit()
                 }
             }
             .frame(width: isCompact ? 52 : 70)
@@ -246,15 +250,15 @@ struct TeamsView: View {
     }
 
     private func side(_ team: Team, score: Int?, trailing: Bool = false) -> some View {
-        VStack(alignment: trailing ? .trailing : .leading, spacing: 8) {
-            TeamBadge(team: team, size: isCompact ? 34 : 48)
-            Text(team.name.uppercased())
-                .font(.wide(isCompact ? 13 : 16, 800))
-                .foregroundColor(.white)
+        VStack(alignment: trailing ? .trailing : .leading, spacing: 6) {
+            TeamBadge(team: team, size: isCompact ? 34 : 52)
+            Text(team.name)
+                .font(isCompact ? .subheadline.weight(.semibold) : .headline)
+                .foregroundColor(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(score.map(String.init) ?? "–")
-                .font(.wide(isCompact ? 30 : 40, 900))
+            Text(score.map(String.init) ?? "0")
+                .font(.system(size: isCompact ? 36 : 56, weight: .bold))
                 .foregroundColor(.white)
                 .monospacedDigit()
                 .contentTransition(.numericText())
@@ -274,12 +278,28 @@ struct StatsBlock: View {
     private var colors: (Color, Color) { (Color(hex: home.color) ?? .white, Color(hex: away.color) ?? .muted) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(spacing: 14) {
-                Versus(label: "Shots made", a: state.teams[0].fgm, b: state.teams[1].fgm, colors: colors)
-                Versus(label: "Shots taken", a: state.teams[0].fga, b: state.teams[1].fga, colors: colors)
+        VStack(alignment: .leading, spacing: 28) {
+            group("Team Stats") {
+                VStack(spacing: 16) {
+                    Versus(label: "Shots Made", a: state.teams[0].fgm, b: state.teams[1].fgm, colors: colors)
+                    Versus(label: "Shots Taken", a: state.teams[0].fga, b: state.teams[1].fga, colors: colors)
+                }
+                .padding(16)
             }
-            PlayerList(players: state.players.filter(\.isWorthShowing), home: home, away: away, colors: colors)
+            group("Players") {
+                PlayerList(players: state.players.filter(\.isWorthShowing), home: home, away: away, colors: colors)
+                    .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    /// Apple's grouped section: a title above a rounded system-grey group.
+    private func group<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.title3.weight(.bold)).foregroundColor(.white)
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 }
@@ -294,11 +314,11 @@ private struct Versus: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack {
-                Text("\(a)").font(.wide(20, 900)).contentTransition(.numericText())
+                Text("\(a)").font(.title3.weight(.bold)).contentTransition(.numericText())
                 Spacer()
-                Text(label).font(.text(14, 550)).foregroundColor(.muted)
+                Text(label).font(.subheadline).foregroundColor(.secondary)
                 Spacer()
-                Text("\(b)").font(.wide(20, 900)).contentTransition(.numericText())
+                Text("\(b)").font(.title3.weight(.bold)).contentTransition(.numericText())
             }
             .foregroundColor(.white)
             .monospacedDigit()
