@@ -2,129 +2,229 @@ import AVFoundation
 import Photos
 import SwiftUI
 
-// First launch: what it is, your team, your players, access, your Mac.
-// Permissions are asked here on purpose, so the camera prompt never fires
-// on top of a black viewfinder. The team made here is the home team.
+// First launch, in the shape of Apple's own setup screens: welcome, your team,
+// your players, access, your Mac. Permissions are asked here on purpose, so
+// the camera prompt never fires on top of a black viewfinder. The team made
+// here is the home team. No swiping between pages: each step has its gate.
 
 struct OnboardingView: View {
     let finish: () -> Void
     // Screenshots: launch with `-debugPage 2` to open a page directly.
     #if DEBUG
-    @State private var page = UserDefaults.standard.integer(forKey: "debugPage")
+    @State private var page = min(max(UserDefaults.standard.integer(forKey: "debugPage"), 0), 4)
     #else
     @State private var page = 0
     #endif
+    @State private var forward = true
     @State private var team = TeamStore.all().first ?? Team(name: "", color: TeamStore.palette[0])
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
 
-    var body: some View {
-        ZStack(alignment: .top) {
-            TabView(selection: $page) {
-                WelcomePage { page = 1 }.tag(0)
-                Step(title: "YOUR\nTEAM", button: "Continue",
-                     enabled: !team.name.trimmingCharacters(in: .whitespaces).isEmpty) {
-                    TeamStore.save(team)
-                    page = 2
-                } content: {
-                    TeamForm(team: $team)
-                }
-                .tag(1)
-                Step(title: "YOUR\nPLAYERS", button: team.players.isEmpty ? "Later" : "Continue", fill: true) {
-                    TeamStore.save(team)
-                    TeamStore.homeID = team.id
-                    page = 3
-                } content: {
-                    ScrollView { RosterList(players: $team.players) }
-                }
-                .tag(2)
-                PermissionsPage { page = 4 }.tag(3)
-                ConnectPage(host: $bridgeHost, finish: finish).tag(4)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(.spring(duration: 0.4), value: page)
+    private static let pages = 5
 
-            if page > 0 {
-                HStack(spacing: 6) {
-                    ForEach(1..<5) { i in
-                        Capsule()
-                            .fill(i <= page ? Color.pla : Color.white.opacity(0.18))
-                            .frame(height: 3)
-                    }
+    var body: some View {
+        VStack(spacing: 0) {
+            TopBar(page: page, count: Self.pages) { go(page - 1) }
+            ZStack {
+                current
+                    .id(page)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                        removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+        }
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .tint(.pla)
+    }
+
+    @ViewBuilder private var current: some View {
+        switch page {
+        case 0:
+            WelcomePage { go(1) }
+        case 1:
+            Page(button: "Continue",
+                 enabled: !team.name.trimmingCharacters(in: .whitespaces).isEmpty,
+                 action: { TeamStore.save(team); go(2) }) {
+                Header(symbol: "person.3.fill", title: "Your Team")
+                TeamForm(team: $team)
+                    .padding(.top, 28)
+                Spacer(minLength: 0)
+            }
+        case 2:
+            Page(button: team.players.isEmpty ? "Later" : "Continue",
+                 action: {
+                     TeamStore.save(team)
+                     TeamStore.homeID = team.id
+                     go(3)
+                 }) {
+                Header(symbol: "tshirt.fill", title: "Your Players")
+                RosterList(players: $team.players)
+                    .padding(.top, 20)
+                Spacer(minLength: 0)
+            }
+        case 3:
+            PermissionsPage { go(4) }
+        default:
+            ConnectPage(host: $bridgeHost, finish: finish)
+        }
+    }
+
+    private func go(_ target: Int) {
+        guard (0..<Self.pages).contains(target) else { return }
+        forward = target > page
+        withAnimation(.spring(duration: 0.4)) { page = target }
+    }
+}
+
+// MARK: - frame
+
+/// Back on the left, page dots in the middle, like Apple's setup assistant.
+private struct TopBar: View {
+    let page: Int
+    let count: Int
+    let back: () -> Void
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: 8) {
+                ForEach(0..<count, id: \.self) { i in
+                    Circle()
+                        .fill(i == page ? Color.primary : Color.secondary.opacity(0.4))
+                        .frame(width: 7, height: 7)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 10)
-                .transition(.opacity)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Step \(page + 1) of \(count)")
+            .animation(.easeInOut(duration: 0.2), value: page)
+
+            HStack {
+                if page > 0 {
+                    Button(action: back) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left").font(.body.weight(.semibold))
+                            Text("Back")
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .transition(.opacity)
+                }
+                Spacer()
             }
         }
-        .background(Color.ink.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .padding(.horizontal, 16)
+        .frame(height: 44)
+    }
+}
+
+/// One step: content scrolls and fills the height, the primary button sits at
+/// the bottom on the safe area, so it rides above the keyboard on any phone.
+private struct Page<Content: View>: View {
+    let button: String
+    var enabled = true
+    let action: () -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        GeometryReader { geo in
+            ScrollView {
+                VStack(spacing: 0) { content }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: 520)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PrimaryButton(title: button, enabled: enabled, action: action)
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
+                .background(Color(.systemBackground))
+        }
+    }
+}
+
+/// Plain SF Symbol over a large centered title, as in Apple's setup screens.
+private struct Header: View {
+    let symbol: String
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 50, weight: .regular))
+                .foregroundStyle(Color.pla)
+                .frame(height: 60)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.largeTitle.bold())
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 12)
     }
 }
 
 // MARK: - pages
 
+/// Apple's "Welcome to" / "What's New" sheet: title, three features, Continue.
 private struct WelcomePage: View {
     let next: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Wordmark(size: 118)
-                .lineLimit(2)
-                .minimumScaleFactor(0.5)
-                .padding(.top, 20)
-            Spacer()
-            VStack(alignment: .leading, spacing: 18) {
-                claim("01", "Films the game")
-                claim("02", "Follows the ball")
-                claim("03", "Counts every shot")
+        Page(button: "Continue", action: next) {
+            Spacer(minLength: 16)
+            VStack(spacing: 2) {
+                Text("Welcome to")
+                    .font(.system(size: 34, weight: .bold))
+                Wordmark(size: 44)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            Spacer()
-            PrimaryButton(title: "Get started", action: next)
-        }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
-    }
-
-    private func claim(_ n: String, _ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
-            Text(n).font(.wide(22, 800)).foregroundColor(.pla)
-            Text(text.uppercased()).font(.wide(40, 900)).foregroundColor(.white)
-                .lineLimit(1).minimumScaleFactor(0.6)
+            .frame(maxWidth: .infinity)
+            Spacer(minLength: 32)
+            VStack(alignment: .leading, spacing: 28) {
+                Feature(symbol: "video.fill", title: "Films the Game",
+                        text: "The camera turns with the ball, so you can coach instead of filming.")
+                Feature(symbol: "dot.radiowaves.left.and.right", title: "Live with the Score",
+                        text: "Stream the game to your Mac with the score on screen.")
+                Feature(symbol: "person.text.rectangle", title: "Stats per Player",
+                        text: "Shots and points for every number on your roster.")
+            }
+            Spacer(minLength: 24)
+            Spacer(minLength: 0)
         }
     }
 }
 
-/// One onboarding step: big title on top, the content in the middle of the
-/// screen (or filling it), the action at the bottom where the thumb is.
-private struct Step<Content: View>: View {
+private struct Feature: View {
+    let symbol: String
     let title: String
-    let button: String
-    var enabled = true
-    var fill = false
-    let action: () -> Void
-    @ViewBuilder let content: Content
+    let text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.wide(64, 900))
-                .lineSpacing(-18)
-                .foregroundColor(.white)
-                .padding(.top, 40)
-            if fill {
-                content.padding(.top, 20)
-            } else {
-                Spacer()
-                content
-                Spacer()
+        HStack(alignment: .center, spacing: 18) {
+            Image(systemName: symbol)
+                .font(.system(size: 30, weight: .regular))
+                .foregroundStyle(Color.pla)
+                .frame(width: 44)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            PrimaryButton(title: button, enabled: enabled, action: action)
-                .padding(.top, 16)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
-        .frame(maxWidth: 520)
-        .scrollDismissesKeyboard(.interactively)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -135,30 +235,35 @@ private struct PermissionsPage: View {
     @State private var photos = PHPhotoLibrary.authorizationStatus(for: .addOnly)
 
     var body: some View {
-        Step(title: "ALLOW\nACCESS", button: "Continue", action: next) {
+        Page(button: "Continue", action: next) {
+            Header(symbol: "hand.raised.fill", title: "Allow Access")
             VStack(spacing: 0) {
-                Line(icon: "video", title: "Camera") {
-                    PermissionButton(state: .init(camera)) {
-                        AVCaptureDevice.requestAccess(for: .video) { _ in
-                            DispatchQueue.main.async { camera = AVCaptureDevice.authorizationStatus(for: .video) }
-                        }
+                PermissionRow(symbol: "video.fill", title: "Camera", text: "Films the game.",
+                              state: .init(camera)) {
+                    AVCaptureDevice.requestAccess(for: .video) { _ in
+                        DispatchQueue.main.async { camera = AVCaptureDevice.authorizationStatus(for: .video) }
                     }
                 }
-                Line(icon: "mic", title: "Microphone") {
-                    PermissionButton(state: .init(mic)) {
-                        AVCaptureDevice.requestAccess(for: .audio) { _ in
-                            DispatchQueue.main.async { mic = AVCaptureDevice.authorizationStatus(for: .audio) }
-                        }
+                Divider().padding(.leading, 56)
+                PermissionRow(symbol: "mic.fill", title: "Microphone", text: "Records the sound of the gym.",
+                              state: .init(mic)) {
+                    AVCaptureDevice.requestAccess(for: .audio) { _ in
+                        DispatchQueue.main.async { mic = AVCaptureDevice.authorizationStatus(for: .audio) }
                     }
                 }
-                Line(icon: "photo.on.rectangle", title: "Photos") {
-                    PermissionButton(state: .init(photos)) {
-                        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                            DispatchQueue.main.async { photos = status }
-                        }
+                Divider().padding(.leading, 56)
+                PermissionRow(symbol: "photo.on.rectangle", title: "Photos", text: "Saves your recordings.",
+                              state: .init(photos)) {
+                    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                        DispatchQueue.main.async { photos = status }
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .background(Color(.secondarySystemBackground),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.top, 32)
+            Spacer(minLength: 0)
         }
     }
 }
@@ -172,71 +277,94 @@ private struct ConnectPage: View {
     enum MacCheck: Equatable { case idle, checking, ok, failed }
 
     var body: some View {
-        Step(title: "FIND\nYOUR MAC", button: check == .ok ? "Start" : "Later", action: finish) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("The address the Mac shows when HooperGPT starts.")
-                    .font(.text(17))
-                    .foregroundColor(.muted)
-                HStack {
+        Page(button: check == .ok ? "Start" : "Later", action: finish) {
+            Header(symbol: "macbook", title: "Find Your Mac")
+            Text("Type the address your Mac shows when HooperGPT starts.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 10)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
                     TextField("192.168.1.10", text: $host)
-                        .font(.wide(36, 800))
+                        .font(.body.monospacedDigit())
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
+                        .submitLabel(.go)
                         .focused($focused)
+                        .onSubmit { Task { await test() } }
                         .onChange(of: host) { check = .idle }
                     Button {
                         focused = false
                         Task { await test() }
                     } label: {
                         Group {
-                            switch check {
-                            case .idle: Text("Test")
-                            case .checking: ProgressView().tint(.white)
-                            case .ok: Text("Found").foregroundColor(.green)
-                            case .failed: Text("Not found").foregroundColor(.pla)
-                            }
+                            if check == .checking { ProgressView() } else { Text("Test") }
                         }
-                        .font(.text(17, 650))
-                        .foregroundColor(.white)
-                        .frame(minWidth: 60, minHeight: 44)
+                        .font(.body.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
                     }
                     .disabled(check == .checking || host.isEmpty)
                 }
-                .padding(.vertical, 6)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(check == .ok ? Color.green : Color.white.opacity(0.3)).frame(height: 2)
-                }
+                .padding(.leading, 16)
+                .padding(.trailing, 8)
+                .background(Color(.secondarySystemBackground),
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                status
+                    .font(.footnote)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 18, alignment: .leading)
             }
+            .padding(.top, 28)
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch check {
+        case .idle, .checking:
+            Text(" ")
+        case .ok:
+            Label("Mac found", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case .failed:
+            Label("No Mac at this address. Same Wi-Fi?", systemImage: "exclamationmark.circle.fill")
+                .foregroundStyle(Color.pla)
         }
     }
 
     private func test() async {
+        focused = false
         check = .checking
         check = await MacEndpoint(host: host).isReachable() ? .ok : .failed
     }
 }
 
-// MARK: - building blocks
+// MARK: - permissions
 
-/// One line of a list: plain icon, title, optional control.
-private struct Line<Trailing: View>: View {
-    let icon: String
+private struct PermissionRow: View {
+    let symbol: String
     let title: String
-    @ViewBuilder var trailing: Trailing
+    let text: String
+    let state: PermissionState
+    let request: () -> Void
 
     var body: some View {
-        HStack(spacing: 18) {
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundColor(.white)
-                .frame(width: 34)
-            Text(title.uppercased()).font(.wide(28, 800)).foregroundColor(.white)
-            Spacer(minLength: 0)
-            trailing
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 22))
+                .foregroundStyle(Color.pla)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.body)
+                Text(text).font(.footnote).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            PermissionButton(state: state, request: request)
         }
-        .frame(minHeight: 76)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
+        .frame(minHeight: 64)
     }
 }
 
@@ -267,13 +395,15 @@ private struct PermissionButton: View {
     var body: some View {
         switch state {
         case .granted:
-            Image(systemName: "checkmark").font(.system(size: 20, weight: .bold)).foregroundColor(.pla)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.green)
+                .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel("Allowed")
         case .notAsked:
             Button("Allow", action: request)
-                .font(.text(17, 700))
-                .foregroundColor(.pla)
-                .frame(minWidth: 60, minHeight: 44)
+                .font(.body.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
         case .denied:
             // iOS only asks once; after a no, the switch lives in Settings.
             Button("Settings") {
@@ -281,9 +411,9 @@ private struct PermissionButton: View {
                     UIApplication.shared.open(url)
                 }
             }
-            .font(.text(17, 600))
-            .foregroundColor(.muted)
-            .frame(minWidth: 60, minHeight: 44)
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 44, minHeight: 44)
         }
     }
 }
