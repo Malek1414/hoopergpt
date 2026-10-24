@@ -309,6 +309,7 @@ private struct PlayerEditor: View {
     let done: (Result) -> Void
     @State private var number = ""
     @State private var name = ""
+    @State private var confirmDelete = false
     @FocusState private var field: Int?
 
     private var parsed: Int? { Int(number).flatMap { (0...99).contains($0) ? $0 : nil } }
@@ -341,8 +342,12 @@ private struct PlayerEditor: View {
                 }
                 if player != nil {
                     Section {
-                        Button("Delete Player", role: .destructive) { done(.delete) }
+                        Button("Delete Player", role: .destructive) { confirmDelete = true }
                             .frame(maxWidth: .infinity)
+                            .confirmationDialog("Delete \(name.isEmpty ? "#\(number)" : name)?",
+                                                isPresented: $confirmDelete, titleVisibility: .visible) {
+                                Button("Delete Player", role: .destructive) { done(.delete) }
+                            }
                     }
                 }
             }

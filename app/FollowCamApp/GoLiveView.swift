@@ -46,8 +46,8 @@ struct GoLiveView: View {
                         .listRowBackground(Color.clear)
                 }
                 destination
-                Section {
-                    teamsRow
+                Section("Teams") { teamsRow }
+                Section("Overlay") {
                     NavigationLink {
                         SkinPicker(home: home, away: away, selected: $selectedSkin,
                                    owns: owns, buy: { buying = $0 })

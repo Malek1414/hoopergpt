@@ -59,6 +59,7 @@ struct GameSetupView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("New Game")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
@@ -86,7 +87,7 @@ struct GameSetupView: View {
             .onAppear { if UserDefaults.standard.bool(forKey: "debugPicker"), path.isEmpty { path = [.home] } }
             #endif
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
     }
 
     private func teamRow(_ team: Team, side: Side) -> some View {
@@ -117,6 +118,14 @@ private struct TeamPicker: View {
     @State private var teams = TeamStore.all()
     @State private var editing: Team?
 
+    private var newTeamRow: some View {
+        Button {
+            editing = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
+        } label: {
+            Label("New Team", systemImage: "plus")
+        }
+    }
+
     var body: some View {
         List {
             if !teams.isEmpty {
@@ -142,24 +151,15 @@ private struct TeamPicker: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            Button { editing = team } label: {
-                                Image(systemName: "info.circle").font(.title3)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel("Edit \(team.name)")
                         }
                         .swipeActions {
                             Button("Edit") { editing = team }.tint(.gray)
                         }
                     }
+                    newTeamRow
                 }
-            }
-            Section {
-                Button {
-                    editing = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
-                } label: {
-                    Label("New Team", systemImage: "plus")
-                }
+            } else {
+                Section { newTeamRow }
             }
         }
         .listStyle(.insetGrouped)
@@ -240,11 +240,11 @@ struct GameDetailView: View {
         VStack(spacing: 8) {
             TeamBadge(team: team, size: 48)
             Text(team.name)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .font(.footnote.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
         }
-        .frame(width: 68)
+        .frame(width: 76)
     }
 
     private func score(_ value: Int?, winning: Bool) -> some View {

@@ -245,11 +245,14 @@ struct ContentView: View {
             Group {
                 if let game = lastGame, !camera.isRecording {
                     Button { showingLastGame = true } label: {
-                        Image(systemName: "sportscourt")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                        // Like the Camera app's last-photo thumbnail: the two
+                        // teams of the newest game.
+                        ZStack {
+                            TeamBadge(team: game.away, size: 30).offset(x: 7, y: 7)
+                            TeamBadge(team: game.home, size: 30).offset(x: -7, y: -7)
+                        }
+                        .frame(width: 48, height: 48)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Last game, \(game.home.name) vs \(game.away.name)")
@@ -410,6 +413,9 @@ struct SummaryCard: View {
             }
         }
         .presentationDetents([.height(300)])
+        .presentationDragIndicator(.visible)
+        // Opaque, so the shutter does not glow through the glass.
+        .presentationBackground(Color(.secondarySystemBackground))
     }
 }
 

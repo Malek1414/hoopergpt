@@ -69,7 +69,6 @@ private struct BottomButton: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(.bar)
     }
 }
 
@@ -84,8 +83,7 @@ private struct WelcomePage: View {
             VStack(alignment: .leading, spacing: 44) {
                 Text("Welcome to HooperGPT")
                     .font(.largeTitle.bold())
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 56)
                 VStack(alignment: .leading, spacing: 28) {
                     Feature(symbol: "video.fill", title: "Follows the Ball",
@@ -172,7 +170,7 @@ private struct TeamPage: View {
             }
 
             Section("Players") {
-                ForEach(team.players) { player in
+                ForEach(team.players.sorted { $0.number < $1.number }) { player in
                     HStack(spacing: 14) {
                         Text("\(player.number)")
                             .font(.system(.body, design: .monospaced).weight(.bold))
@@ -181,7 +179,12 @@ private struct TeamPage: View {
                             .foregroundStyle(player.name.isEmpty ? .secondary : .primary)
                     }
                 }
-                .onDelete { team.players.remove(atOffsets: $0) }
+                .onDelete { offsets in
+                    // Offsets point into the sorted list, not the stored one.
+                    let shown = team.players.sorted { $0.number < $1.number }
+                    let ids = Set(offsets.map { shown[$0].id })
+                    team.players.removeAll { ids.contains($0.id) }
+                }
                 Button {
                     adding = true
                 } label: {
@@ -371,10 +374,10 @@ private struct ReadyPage: View {
     @ViewBuilder private var status: some View {
         switch check {
         case .idle, .checking:
-            Text("Type the address your Mac shows when HooperGPT starts.")
+            EmptyView()
         case .ok:
             Label("Mac found", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.pla)
         case .failed:
             Label("No Mac at this address. Same Wi-Fi?", systemImage: "exclamationmark.circle.fill")
                 .foregroundStyle(Color.pla)
@@ -434,7 +437,7 @@ private struct PermissionButton: View {
         case .granted:
             Image(systemName: "checkmark")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(.secondary)
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel("Allowed")
         case .notAsked:

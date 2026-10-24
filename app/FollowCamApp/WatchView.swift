@@ -77,9 +77,9 @@ struct WatchView: View {
 
     private var noStream: some View {
         ContentUnavailableView {
-            Label("No Stream", systemImage: "play.slash")
+            Label("No Stream", systemImage: "video.slash")
         } description: {
-            Text("Start HooperGPT on your Mac, on the same Wi-Fi as this iPhone.")
+            Text("Start HooperGPT on your Mac.")
         } actions: {
             Button("Reconnect") { feed.start(host: bridgeHost) }
                 .buttonStyle(.borderedProminent)
@@ -230,21 +230,17 @@ struct StreamPicture: View {
     }
 }
 
-/// Signal state as one dot: red and breathing when live, grey otherwise.
+/// Signal state as one dot: red when live, grey otherwise.
 private struct LiveDot: View {
     let link: LiveFeed.Link
-    @State private var breathe = false
 
     var body: some View {
         Circle()
             .fill(link == .live ? Color.red : Color(white: 0.6))
             .frame(width: 10, height: 10)
-            .opacity(link == .live && breathe ? 0.45 : 1)
             .padding(6)
             .background(Circle().fill(Color.black.opacity(0.35)))
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1).repeatForever()) { breathe = true }
-            }
+
             .accessibilityLabel(link == .live ? "Live" : "No signal")
     }
 }
@@ -397,9 +393,9 @@ private struct PlayerList: View {
         return HStack(spacing: 12) {
             // No confident number yet: show it quietly instead of inventing one.
             Text(player.number.map { "\($0)" } ?? "#?")
-                .font(player.number == nil ? .text(16, 600) : .wide(22, 900))
+                .font(.body.weight(.bold).monospacedDigit())
                 .foregroundColor(player.number == nil ? .muted : .white)
-                .frame(width: 40, alignment: .leading)
+                .frame(width: 36, alignment: .leading)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     if let known, !known.name.isEmpty {
