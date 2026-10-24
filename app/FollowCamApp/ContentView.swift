@@ -1,9 +1,10 @@
 import AVFoundation
 import SwiftUI
 
-// Film tab: the viewfinder, chrome like Apple's Camera app. Glass capsules
+// Film tab: the viewfinder, chrome like Apple's Camera app. Plain symbols
 // for the pod and the strap at the top, the timecode in red while recording,
-// the shutter at the bottom. Orange marks the followed player, red is REC.
+// the shutter at the bottom with the last game to its left. Orange marks the
+// followed player, red is REC.
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
@@ -33,6 +34,9 @@ struct ContentView: View {
     // Screenshots: launch with `-debugSetup YES` to open the game setup.
     @State private var settingUpGame = UserDefaults.standard.bool(forKey: "debugSetup")
     @AppStorage("didOnboard") private var didOnboard = false
+    // Newest saved game, for the button left of the shutter (nil hides it).
+    @State private var lastGame: GameRecord?
+    @State private var showingLastGame = false
 
     var body: some View {
         ZStack {
@@ -67,8 +71,11 @@ struct ContentView: View {
                     TimecodeView(since: started)
                         .transition(.opacity)
                 }
+                // Only while the phone is tilted; the frame stays so nothing jumps.
                 Horizon(angle: pan.angle, roll: level.rollDegrees, isLevel: level.isLevel)
                     .frame(width: 150, height: 14)
+                    .opacity(level.isLevel ? 0 : 1)
+                    .animation(.easeOut(duration: 0.25), value: level.isLevel)
                 Spacer()
                 if let until = lostFlashUntil, until > Date() {
                     Text("Lost them. Tap a player.")
@@ -105,6 +112,7 @@ struct ContentView: View {
             }
             camera.start()
             level.start()
+            refreshLastGame()
             if !didOnboard { showGuide = true }
         }
     }
@@ -161,11 +169,19 @@ struct ContentView: View {
     // MARK: top status strip: pod, heart rate, lock, timecode
 
     private var statusStrip: some View {
-        HStack(spacing: 8) {
-            chip("Pod", on: pan.connected) { pan.connect(host: bridgeHost) }
+        HStack(spacing: 4) {
+            symbolButton(pan.connected ? "antenna.radiowaves.left.and.right"
+                                       : "antenna.radiowaves.left.and.right.slash",
+                         on: pan.connected,
+                         label: pan.connected ? "Pod, connected" : "Pod, not connected") {
+                pan.connect(host: bridgeHost)
+            }
             // Tap starts the strap search; tap again to stop it.
-            chip(heart.bpm.map { "\($0) bpm" } ?? (heart.scanning ? "Searching" : "Heart"),
-                 on: heart.bpm != nil, pending: heart.scanning) {
+            symbolButton(heart.bpm != nil ? "heart.fill" : "heart",
+                         on: heart.bpm != nil,
+                         dimmed: !heart.scanning && heart.bpm == nil,
+                         label: heart.bpm.map { "Heart rate, \($0) beats per minute" }
+                             ?? (heart.scanning ? "Heart rate, searching" : "Heart rate, off")) {
                 if heart.isActive { heart.stop() } else { heart.startScan() }
             }
             Spacer()
@@ -186,33 +202,53 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 8)
         .padding(.top, 8)
     }
 
-    private func chip(_ label: String, on: Bool, pending: Bool = false,
-                      action: @escaping () -> Void) -> some View {
+    /// One white SF Symbol with a 44 pt target, like the Camera app's top row.
+    /// State shows only in the symbol itself and a green dot when connected.
+    private func symbolButton(_ symbol: String, on: Bool, dimmed: Bool = true,
+                              label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(on ? Color.green : Color.white.opacity(pending ? 0.6 : 0.3))
-                    .frame(width: 7, height: 7)
-                Text(label)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(on ? Color.white : Color.white.opacity(0.7))
-                    .monospacedDigit()
-            }
-            .padding(.horizontal, 14).frame(height: 38)
-            .glass(19)
+            Image(systemName: symbol)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(on || !dimmed ? Color.white : Color.white.opacity(0.6))
+                .overlay(alignment: .topTrailing) {
+                    if on {
+                        Circle().fill(Color.green)
+                            .frame(width: 7, height: 7)
+                            .offset(x: 5, y: -3)
+                    }
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityValue(on ? "On" : "Off")
+        .accessibilityLabel(label)
     }
 
     // MARK: bottom bar — record + target state
 
     private var bottomBar: some View {
-        ZStack {
+        HStack(spacing: 0) {
+            // Left: the newest game, like the Camera app's last photo.
+            // Right stays empty for balance: there is no second function yet.
+            Group {
+                if let game = lastGame, !camera.isRecording {
+                    Button { showingLastGame = true } label: {
+                        Image(systemName: "sportscourt")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Last game, \(game.home.name) vs \(game.away.name)")
+                    .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity)
             RecordButton(isRecording: camera.isRecording) {
                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                 if camera.isRecording {
@@ -226,8 +262,23 @@ struct ContentView: View {
                     settingUpGame = true
                 }
             }
+            Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
         }
         .padding(.bottom, 20)
+        .animation(.easeOut(duration: 0.2), value: lastGame?.id)
+        .animation(.easeOut(duration: 0.2), value: camera.isRecording)
+        .sheet(isPresented: $showingLastGame) {
+            if let game = lastGame {
+                NavigationStack {
+                    GameDetailView(game: game)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { showingLastGame = false }
+                            }
+                        }
+                }
+            }
+        }
         .sheet(isPresented: $settingUpGame) {
             GameSetupView(start: {
                 settingUpGame = false
@@ -263,9 +314,14 @@ struct ContentView: View {
                 var done = game
                 done.final = await MacEndpoint(host: bridgeHost).currentState()
                 GameStore.add(done)
+                await MainActor.run { refreshLastGame() }
             }
         }
         recordingStarted = nil
+    }
+
+    private func refreshLastGame() {
+        lastGame = GameStore.load().max(by: { $0.date < $1.date })
     }
 
 }
@@ -511,7 +567,7 @@ struct RecordButton: View {
                     .strokeBorder(.white, lineWidth: 4)
                     .frame(width: 78, height: 78)
                 RoundedRectangle(cornerRadius: isRecording ? 7 : 32, style: .continuous)
-                    .fill(Color.red)
+                    .fill(Color(.systemRed))
                     .frame(width: isRecording ? 30 : 64,
                            height: isRecording ? 30 : 64)
             }
