@@ -1,7 +1,7 @@
 import SwiftUI
 
-// Account tab: who you are, your teams and games, your pod, your strap,
-// what you bought. Settings style: one inset grouped list.
+// Account tab: your teams and games, your pod (with heart rate) and the
+// app itself. Settings style: one inset grouped list.
 //
 // Screenshot flags (DEBUG only):
 //   -debugTeam YES     opens the first team's detail sheet
@@ -14,38 +14,21 @@ struct AccountView: View {
     let replayGuide: () -> Void
 
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
-    @AppStorage("skins.owned") private var ownedSkins = "classic"
-    @AppStorage("skins.selected") private var selectedSkin = "classic"
     @StateObject private var whoop = WhoopAuthCoordinator.shared
-    // WHOOP app credentials (reuse the HUSTLR registration: add the redirect
-    // URI followcam://whoop-callback to it at developer.whoop.com)
-    @State private var whoopClientID = Keychain.get(KeychainKey.whoopClientID)
-        ?? "fcdd77dd-47c5-4530-857a-014a480437b0"
-    @State private var whoopSecret = ""
-    @State private var whoopStatus: String?
-    @State private var showWhoopKeys = false
     @State private var games: [GameRecord] = []
     @State private var teams: [Team] = []
     @State private var editingTeam: Team?
     @State private var path: [UUID] = []
     @State private var didDebug = false
-
-    private var owned: [Skin] {
-        Skin.all.filter { ownedSkins.split(separator: ",").contains(Substring($0.id)) }
-    }
+    @State private var editingMac = false
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
-                profile
                 teamsSection
                 gamesSection
                 podSection
-                heartRateSection
-                skinsSection
-                Section("Help") {
-                    Button("Show Setup Steps Again", action: replayGuide)
-                }
+                appSection
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Account")
@@ -55,6 +38,12 @@ struct AccountView: View {
             }
         }
         .onAppear(perform: reload)
+        .sheet(isPresented: $editingMac) {
+            MacAddressSheet(host: bridgeHost) { host in
+                bridgeHost = host
+                pan.connect(host: host)
+            }
+        }
         .sheet(item: $editingTeam) { team in
             TeamDetailView(team: team) { _ in
                 teams = TeamStore.all()
@@ -64,20 +53,6 @@ struct AccountView: View {
     }
 
     // MARK: sections
-
-    private var profile: some View {
-        Section {
-            HStack(spacing: 16) {
-                Image(systemName: "person.crop.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: 60))
-                    .foregroundStyle(.secondary)
-                Text("Guest").font(.title2.weight(.semibold))
-            }
-            .padding(.vertical, 6)
-            Button("Sign In") {}
-        }
-    }
 
     private var teamsSection: some View {
         Section("Teams") {
@@ -123,25 +98,22 @@ struct AccountView: View {
 
     private var podSection: some View {
         Section {
-            HStack {
-                TextField("Mac Address", text: $bridgeHost)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.go)
-                    .onSubmit { pan.connect(host: bridgeHost) }
-                if pan.connected {
-                    Label("Connected", systemImage: "checkmark.circle.fill")
-                        .labelStyle(.titleAndIcon)
-                        .font(.subheadline)
-                        .foregroundStyle(.green)
-                } else {
-                    Button("Connect") { pan.connect(host: bridgeHost) }
-                        .buttonStyle(.borderless)
-                        .disabled(bridgeHost.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button { editingMac = true } label: {
+                LabeledContent("Mac") {
+                    if pan.connected {
+                        Text("Connected")
+                    } else {
+                        Text(bridgeHost.isEmpty ? "Not Set" : bridgeHost)
+                    }
                 }
+                .foregroundStyle(.primary)
             }
             Toggle("Reverse Pan", isOn: $pan.invert)
+            NavigationLink {
+                HeartRateView()
+            } label: {
+                LabeledContent("Heart Rate", value: whoop.connected ? "WHOOP" : "Off")
+            }
             if pan.connected {
                 Button("Disconnect", role: .destructive) { pan.disconnect() }
             }
@@ -152,72 +124,41 @@ struct AccountView: View {
         }
     }
 
-    private var heartRateSection: some View {
+    private var appSection: some View {
         Section {
-            Button {
-                Task { await syncWhoop() }
-            } label: {
-                LabeledContent(whoop.connected ? "WHOOP Connected" : "Connect WHOOP") {
-                    if whoop.connected { Text("Sync") }
-                }
-            }
-            .foregroundStyle(whoop.connected ? .primary : Color.accentColor)
-            if let whoopStatus {
-                Text(whoopStatus).font(.subheadline).foregroundStyle(.secondary)
-            }
-            DisclosureGroup("Developer Keys", isExpanded: $showWhoopKeys) {
-                TextField("Client ID", text: $whoopClientID)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                SecureField("Client Secret", text: $whoopSecret)
-                Button("Save Keys") {
-                    WhoopClient.configure(clientID: whoopClientID, secret: whoopSecret)
-                    whoopSecret = ""
-                    whoopStatus = "Keys saved"
-                }
-                .disabled(whoopClientID.isEmpty || whoopSecret.isEmpty)
-            }
+            Button("Show Setup Steps Again", action: replayGuide)
         } header: {
-            Text("Heart Rate")
+            Text("App")
+        } footer: {
+            Text(appVersion)
         }
     }
 
-    private var skinsSection: some View {
-        Section {
-            ForEach(owned) { skin in
-                Button { selectedSkin = skin.id } label: {
-                    HStack {
-                        Text(skin.name).foregroundStyle(.primary)
-                        Spacer()
-                        if skin.id == selectedSkin {
-                            Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(.tint)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(skin.id == selectedSkin ? .isSelected : [])
-            }
-        } header: {
-            Text("Skins")
-        } footer: {
-            Text("The score bar on your stream.")
-        }
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "Version \(version) (\(build))"
     }
 
     private func gameRow(_ game: GameRecord) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("\(game.home.name) vs \(game.away.name)").lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(game.home.name).lineLimit(2)
+                Text(game.away.name).lineLimit(2)
                 Text(game.date.formatted(date: .abbreviated, time: .shortened))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
+            Spacer(minLength: 8)
             if let t = game.final?.teams, t.count == 2 {
-                Text("\(t[0].score) : \(t[1].score)")
-                    .font(.body.weight(.semibold))
-                    .monospacedDigit()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(t[0].score)")
+                    Text("\(t[1].score)")
+                }
+                .font(.body.weight(.semibold))
+                .monospacedDigit()
+                .fixedSize()
             }
         }
     }
@@ -238,7 +179,54 @@ struct AccountView: View {
         if UserDefaults.standard.bool(forKey: "debugGame"), let first = games.first { path = [first.id] }
         #endif
     }
+}
 
+// Heart Rate: pushed from the Pod section. WHOOP connect and developer keys.
+private struct HeartRateView: View {
+    @StateObject private var whoop = WhoopAuthCoordinator.shared
+    // WHOOP app credentials (reuse the HUSTLR registration: add the redirect
+    // URI followcam://whoop-callback to it at developer.whoop.com)
+    @State private var whoopClientID = Keychain.get(KeychainKey.whoopClientID)
+        ?? "fcdd77dd-47c5-4530-857a-014a480437b0"
+    @State private var whoopSecret = ""
+    @State private var whoopStatus: String?
+    @State private var showWhoopKeys = false
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    Task { await syncWhoop() }
+                } label: {
+                    LabeledContent(whoop.connected ? "WHOOP Connected" : "Connect WHOOP") {
+                        if whoop.connected { Text("Sync") }
+                    }
+                }
+                .foregroundStyle(whoop.connected ? .primary : Color.accentColor)
+                if let whoopStatus {
+                    Text(whoopStatus).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            Section {
+                DisclosureGroup("Developer Keys", isExpanded: $showWhoopKeys) {
+                    TextField("Client ID", text: $whoopClientID)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    SecureField("Client Secret", text: $whoopSecret)
+                    Button("Save Keys") {
+                        WhoopClient.configure(clientID: whoopClientID, secret: whoopSecret)
+                        whoopSecret = ""
+                        whoopStatus = "Keys saved"
+                    }
+                    .disabled(whoopClientID.isEmpty || whoopSecret.isEmpty)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Heart Rate")
+        .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
+    }
     private func syncWhoop() async {
         do {
             if !whoop.connected { try await whoop.connect() }
@@ -249,5 +237,47 @@ struct AccountView: View {
         } catch {
             whoopStatus = error.localizedDescription
         }
+    }
+}
+
+// Edit sheet for the Mac address. Cancel leading, Connect trailing.
+private struct MacAddressSheet: View {
+    @State var host: String
+    let connect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { host.trimmingCharacters(in: .whitespaces) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Mac Address", text: $host)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.go)
+                    .focused($focused)
+                    .onSubmit(save)
+            }
+            .navigationTitle("Mac")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Connect", action: save).disabled(trimmed.isEmpty)
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func save() {
+        guard !trimmed.isEmpty else { return }
+        connect(trimmed)
+        dismiss()
     }
 }
