@@ -19,11 +19,23 @@ struct MacEndpoint {
         guard let (_, response) = try? await URLSession.shared.data(for: request) else { return false }
         return (response as? HTTPURLResponse)?.statusCode == 200
     }
+
+    /// One read of state.json (schema 1 only), nil when the Mac is not there.
+    func currentState() async -> GameState? {
+        guard let url = stateURL else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let state = try? decoder.decode(GameState.self, from: data), state.schema == 1 else { return nil }
+        return state
+    }
 }
 
 // MARK: - state.json, schema 1
 
-struct GameState: Decodable, Equatable {
+struct GameState: Codable, Equatable {
     let schema: Int
     let t: Double
     let period: Int
@@ -34,7 +46,7 @@ struct GameState: Decodable, Equatable {
     let panDeg: Int?
     let camera: String
 
-    struct Team: Decodable, Equatable, Identifiable {
+    struct Team: Codable, Equatable, Identifiable {
         let id: Int
         let name: String
         let color: String
@@ -44,7 +56,7 @@ struct GameState: Decodable, Equatable {
         let fgPct: Double?
     }
 
-    struct Player: Decodable, Equatable, Identifiable {
+    struct Player: Codable, Equatable, Identifiable {
         let key: String
         let number: Int?
         let team: Int          // -1 = not assigned yet
@@ -56,7 +68,7 @@ struct GameState: Decodable, Equatable {
         var isWorthShowing: Bool { team != -1 || fga > 0 }
     }
 
-    struct GameEvent: Decodable, Equatable {
+    struct GameEvent: Codable, Equatable {
         let t: Double
         let type: String       // "made" | "miss" | "manual"
         let team: Int

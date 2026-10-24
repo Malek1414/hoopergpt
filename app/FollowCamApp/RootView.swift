@@ -55,7 +55,12 @@ struct RootView: View {
                     content
                 } else {
                     content
-                        .safeAreaInset(edge: .bottom, spacing: 0) { MenuBar(tab: $tab) }
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            // Half the home-indicator inset: the labels sit just
+                            // above it instead of floating a whole inset higher.
+                            MenuBar(tab: $tab)
+                                .padding(.bottom, -geo.safeAreaInsets.bottom * 0.5)
+                        }
                 }
             }
         }
@@ -92,7 +97,7 @@ struct MenuBar: View {
                 Button {
                     withAnimation(.spring(duration: 0.3)) { tab = item }
                 } label: {
-                    VStack(spacing: 7) {
+                    VStack(spacing: 6) {
                         Text(item.title)
                             .font(.wide(14, tab == item ? 800 : 600))
                             .foregroundColor(tab == item ? .white : .muted)
@@ -105,14 +110,14 @@ struct MenuBar: View {
                         .frame(width: 18, height: 3)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(height: 50)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 6)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
         .background(Color.ink.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) { Rectangle().fill(Color.hairline).frame(height: 1) }
     }

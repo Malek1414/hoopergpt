@@ -26,6 +26,9 @@ struct GoLiveView: View {
     @State private var key = ""
     @State private var keySaved = Keychain.get(KeychainKey.rtmpStreamKey) != nil
     @State private var logos: [UIImage?] = [TeamLogo.load(0), TeamLogo.load(1)]
+    @State private var home = CurrentTeams.home
+    @State private var away = CurrentTeams.away
+    @State private var editingTeams = false
     // Screenshots: launch with `-debugBuy neon` to open the buy sheet.
     #if DEBUG
     @State private var buying: Skin? = UserDefaults.standard.string(forKey: "debugBuy").map(Skin.find)
@@ -39,7 +42,7 @@ struct GoLiveView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 preview
-                logoPicker
+                teamsLine
                 skinShelf
                 destination
                 PrimaryButton(title: "Go live", enabled: false) {}
@@ -64,7 +67,9 @@ struct GoLiveView: View {
         CourtLines()
             .aspectRatio(16 / 9, contentMode: .fit)
             .overlay(alignment: .top) {
-                ScoreBar(skin: skin, homeLogo: logos[0], awayLogo: logos[1])
+                ScoreBar(skin: skin, home: home.name.uppercased(), away: away.name.uppercased(),
+                         homeColor: Color(hex: home.color) ?? .white, awayColor: Color(hex: away.color) ?? .muted,
+                         homeLogo: logos[0], awayLogo: logos[1])
                     .padding(.top, 12)
                     .id(skin.id)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -73,25 +78,29 @@ struct GoLiveView: View {
             .animation(.spring(duration: 0.35), value: selectedSkin)
     }
 
-    // MARK: team logos
+    // MARK: teams: named in the game setup, edited there too
 
-    private var logoPicker: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Team logos").font(.wide(20, 850)).foregroundColor(.white)
-            HStack(spacing: 14) {
-                LogoSlot(label: "Home", image: logos[0]) { set($0, side: 0) }
-                LogoSlot(label: "Away", image: logos[1]) { set($0, side: 1) }
+    private var teamsLine: some View {
+        Button { editingTeams = true } label: {
+            HStack(spacing: 12) {
+                TeamBadge(name: home.name, color: Color(hex: home.color) ?? .muted, logo: logos[0], size: 36)
+                TeamBadge(name: away.name, color: Color(hex: away.color) ?? .muted, logo: logos[1], size: 36)
+                    .padding(.leading, -20)
+                Text("\(home.name) vs \(away.name)")
+                    .font(.text(17, 600)).foregroundColor(.white).lineLimit(1)
+                Spacer()
+                Text("Edit").font(.text(15, 650)).foregroundColor(.pla)
             }
+        }
+        .sheet(isPresented: $editingTeams, onDismiss: reloadTeams) {
+            GameSetupView(actionTitle: "Save", start: { editingTeams = false }, cancel: { editingTeams = false })
         }
     }
 
-    private func set(_ image: UIImage?, side: Int) {
-        if let image {
-            logos[side] = TeamLogo.save(image, side: side)
-        } else {
-            TeamLogo.remove(side)
-            logos[side] = nil
-        }
+    private func reloadTeams() {
+        home = CurrentTeams.home
+        away = CurrentTeams.away
+        logos = [TeamLogo.load(0), TeamLogo.load(1)]
     }
 
     // MARK: skins
@@ -185,44 +194,6 @@ private extension View {
 
 // MARK: - pieces
 
-private struct LogoSlot: View {
-    let label: String
-    let image: UIImage?
-    let set: (UIImage?) -> Void
-    @State private var item: PhotosPickerItem?
-
-    var body: some View {
-        PhotosPicker(selection: $item, matching: .images) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.surface)
-                    if let image {
-                        Image(uiImage: image).resizable().scaledToFill().clipShape(Circle())
-                    } else {
-                        Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).foregroundColor(.white)
-                    }
-                }
-                .frame(width: 52, height: 52)
-                .overlay(Circle().stroke(Color.white.opacity(0.12)))
-                Text(label).font(.text(16, 650)).foregroundColor(.white)
-                Spacer(minLength: 0)
-            }
-        }
-        .contextMenu {
-            if image != nil { Button("Remove logo", role: .destructive) { set(nil) } }
-        }
-        .onChange(of: item) {
-            Task {
-                if let data = try? await item?.loadTransferable(type: Data.self),
-                   let picked = UIImage(data: data) {
-                    set(picked)
-                }
-                item = nil
-            }
-        }
-    }
-}
-
 private struct SkinCard: View {
     let skin: Skin
     let owned: Bool
@@ -234,7 +205,10 @@ private struct SkinCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 CourtLines()
                     .frame(width: 170, height: 96)
-                    .overlay { ScoreBar(skin: skin, scale: 0.62) }
+                    .overlay {
+                        ScoreBar(skin: skin, home: CurrentTeams.home.name.uppercased(),
+                                 away: CurrentTeams.away.name.uppercased(), scale: 0.62)
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(selected ? Color.white : Color.clear, lineWidth: 2))

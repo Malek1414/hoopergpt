@@ -18,11 +18,23 @@ struct AccountView: View {
     @State private var whoopSecret = ""
     @State private var whoopStatus: String?
     @State private var showWhoopKeys = false
+    @State private var games: [GameRecord] = []
+    @State private var openGame: GameRecord?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
                 profile
+                section("Games") {
+                    if games.isEmpty {
+                        Text("Your games show up here after you film one.")
+                            .font(.text(16)).foregroundColor(.muted).row()
+                    }
+                    ForEach(games) { game in
+                        Button { openGame = game } label: { gameRow(game) }
+                            .row()
+                    }
+                }
                 section("Pod") {
                     HStack {
                         TextField("Mac address", text: $bridgeHost)
@@ -110,6 +122,25 @@ struct AccountView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Color.ink.ignoresSafeArea())
+        .onAppear { games = GameStore.load() }
+        .sheet(item: $openGame) { GameDetailView(game: $0) }
+    }
+
+    private func gameRow(_ game: GameRecord) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(game.home.name) vs \(game.away.name)")
+                    .font(.text(17, 600)).foregroundColor(.white).lineLimit(1)
+                Text(game.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.text(14)).foregroundColor(.muted)
+            }
+            Spacer()
+            if let t = game.final?.teams, t.count == 2 {
+                Text("\(t[0].score) : \(t[1].score)").font(.wide(18, 900)).foregroundColor(.white)
+            }
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundColor(.muted)
+        }
+        .padding(.vertical, 8)
     }
 
     private var profile: some View {

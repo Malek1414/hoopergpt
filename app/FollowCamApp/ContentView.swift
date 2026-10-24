@@ -30,6 +30,8 @@ struct ContentView: View {
     @State private var recHRRange: ClosedRange<Int>?
     @State private var recSwept: ClosedRange<Double> = 90...90
     @State private var summary: SessionSummary?
+    // Screenshots: launch with `-debugSetup YES` to open the game setup.
+    @State private var settingUpGame = UserDefaults.standard.bool(forKey: "debugSetup")
     @AppStorage("didOnboard") private var didOnboard = false
 
     var body: some View {
@@ -212,28 +214,52 @@ struct ContentView: View {
             RecordButton(isRecording: camera.isRecording) {
                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                 if camera.isRecording {
-                    camera.stopRecording()
-                    heart.endLog(stamp: Int(Date().timeIntervalSince1970))
-                    if let started = recordingStarted {
-                        summary = SessionSummary(
-                            duration: Date().timeIntervalSince(started),
-                            coverageDeg: recSwept.upperBound - recSwept.lowerBound,
-                            targetHeld: recFrames > 0 ? Double(recTargetFrames) / Double(recFrames) : 0,
-                            hr: recHRRange)
-                    }
-                    recordingStarted = nil
+                    stopGame()
                 } else {
-                    recFrames = 0
-                    recTargetFrames = 0
-                    recHRRange = nil
-                    recSwept = pan.angle...pan.angle
-                    heart.beginLog()
-                    camera.startRecording()
-                    recordingStarted = Date()
+                    // Teams first, so the game is named before the first frame.
+                    settingUpGame = true
                 }
             }
         }
         .padding(.bottom, 30)
+        .sheet(isPresented: $settingUpGame) {
+            GameSetupView(start: {
+                settingUpGame = false
+                startGame()
+            }, cancel: { settingUpGame = false })
+        }
+    }
+
+    private func startGame() {
+        recFrames = 0
+        recTargetFrames = 0
+        recHRRange = nil
+        recSwept = pan.angle...pan.angle
+        heart.beginLog()
+        camera.startRecording()
+        recordingStarted = Date()
+    }
+
+    private func stopGame() {
+        camera.stopRecording()
+        heart.endLog(stamp: Int(Date().timeIntervalSince1970))
+        if let started = recordingStarted {
+            let duration = Date().timeIntervalSince(started)
+            summary = SessionSummary(
+                duration: duration,
+                coverageDeg: recSwept.upperBound - recSwept.lowerBound,
+                targetHeld: recFrames > 0 ? Double(recTargetFrames) / Double(recFrames) : 0,
+                hr: recHRRange)
+            // Keep the game with whatever the Mac counted, for Account later.
+            let game = GameRecord(date: started, home: CurrentTeams.home, away: CurrentTeams.away,
+                                  duration: duration)
+            Task {
+                var done = game
+                done.final = await MacEndpoint(host: bridgeHost).currentState()
+                GameStore.add(done)
+            }
+        }
+        recordingStarted = nil
     }
 
 }
