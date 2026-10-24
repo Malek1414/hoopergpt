@@ -101,17 +101,6 @@ struct Slant: Shape {
     }
 }
 
-/// Tiny colour sample of a skin for lists.
-struct SkinSwatch: View {
-    let skin: Skin
-    var body: some View {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(skin.bar)
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(skin.accent, lineWidth: 1.5))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.15)))
-    }
-}
-
 // MARK: - team logos, kept on the phone
 
 enum TeamLogo {

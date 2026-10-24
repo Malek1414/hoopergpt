@@ -9,6 +9,7 @@ struct AccountView: View {
 
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
     @AppStorage("skins.owned") private var ownedSkins = "classic"
+    @AppStorage("skins.selected") private var selectedSkin = "classic"
     @StateObject private var whoop = WhoopAuthCoordinator.shared
     // WHOOP app credentials (reuse the HUSTLR registration: add the redirect
     // URI followcam://whoop-callback to it at developer.whoop.com)
@@ -84,10 +85,14 @@ struct AccountView: View {
                 }
                 section("Skins") {
                     ForEach(Skin.all.filter { ownedSkins.split(separator: ",").contains(Substring($0.id)) }) { skin in
-                        HStack {
-                            Text(skin.name).font(.text(17, 550))
-                            Spacer()
-                            SkinSwatch(skin: skin).frame(width: 44, height: 22)
+                        Button { selectedSkin = skin.id } label: {
+                            HStack {
+                                Text(skin.name).font(.text(17, 550)).foregroundColor(.white)
+                                Spacer()
+                                if skin.id == selectedSkin {
+                                    Text("On").font(.text(15, 650)).foregroundColor(.green)
+                                }
+                            }
                         }
                         .row()
                     }

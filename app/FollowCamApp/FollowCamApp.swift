@@ -11,8 +11,10 @@ struct FollowCamApp: App {
     }
 }
 
-/// Watch is a landscape screen (the game is filmed sideways); everything
-/// else is portrait. The tab that is showing decides.
+/// Watch turns with the phone, upright or sideways; every other tab stays
+/// upright (the camera code assumes portrait). Nothing is ever forced
+/// sideways: a forced rotation on a phone held upright lays the whole screen
+/// on its side. Leaving Watch only turns the screen back upright.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     static var orientations: UIInterfaceOrientationMask = .portrait
 
@@ -21,10 +23,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Self.orientations
     }
 
-    static func lock(_ mask: UIInterfaceOrientationMask) {
+    static func allow(_ mask: UIInterfaceOrientationMask) {
         orientations = mask
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask))
         scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        if mask == .portrait {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+        }
     }
 }

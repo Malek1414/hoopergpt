@@ -95,21 +95,21 @@ private struct PermissionsPage: View {
     var body: some View {
         OnboardingPage(title: "Allow access", buttonTitle: "Continue", action: next) {
             VStack(spacing: 0) {
-                Line(icon: "video", title: "Camera", detail: "To film the game.") {
+                Line(icon: "video", title: "Camera") {
                     PermissionButton(state: .init(camera)) {
                         AVCaptureDevice.requestAccess(for: .video) { _ in
                             DispatchQueue.main.async { camera = AVCaptureDevice.authorizationStatus(for: .video) }
                         }
                     }
                 }
-                Line(icon: "mic", title: "Microphone", detail: "Court sound in the clip.") {
+                Line(icon: "mic", title: "Microphone") {
                     PermissionButton(state: .init(mic)) {
                         AVCaptureDevice.requestAccess(for: .audio) { _ in
                             DispatchQueue.main.async { mic = AVCaptureDevice.authorizationStatus(for: .audio) }
                         }
                     }
                 }
-                Line(icon: "photo.on.rectangle", title: "Photos", detail: "Saves each recording.") {
+                Line(icon: "photo.on.rectangle", title: "Photos") {
                     PermissionButton(state: .init(photos)) {
                         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
                             DispatchQueue.main.async { photos = status }
@@ -205,7 +205,7 @@ private struct OnboardingPage<Content: View>: View {
 private struct Line<Trailing: View>: View {
     let icon: String
     let title: String
-    let detail: String
+    var detail: String? = nil
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -216,7 +216,9 @@ private struct Line<Trailing: View>: View {
                 .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.text(18, 650)).foregroundColor(.white)
-                Text(detail).font(.text(15)).foregroundColor(.muted)
+                if let detail {
+                    Text(detail).font(.text(15)).foregroundColor(.muted)
+                }
             }
             Spacer(minLength: 0)
             trailing

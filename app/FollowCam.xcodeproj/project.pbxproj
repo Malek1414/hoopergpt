@@ -392,6 +392,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records the game's sound with the video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saves recordings.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -416,6 +417,7 @@
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records the game's sound with the video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Saves recordings.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

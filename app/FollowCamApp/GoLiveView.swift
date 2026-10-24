@@ -26,7 +26,12 @@ struct GoLiveView: View {
     @State private var key = ""
     @State private var keySaved = Keychain.get(KeychainKey.rtmpStreamKey) != nil
     @State private var logos: [UIImage?] = [TeamLogo.load(0), TeamLogo.load(1)]
+    // Screenshots: launch with `-debugBuy neon` to open the buy sheet.
+    #if DEBUG
+    @State private var buying: Skin? = UserDefaults.standard.string(forKey: "debugBuy").map(Skin.find)
+    #else
     @State private var buying: Skin?
+    #endif
 
     private var skin: Skin { Skin.find(selectedSkin) }
 
@@ -139,13 +144,18 @@ struct GoLiveView: View {
                 }
             }
             VStack(spacing: 0) {
-                TextField("rtmp://", text: $server)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .disabled(platform != .custom)
-                    .foregroundColor(platform == .custom ? .white : .muted)
-                    .field()
+                Group {
+                    if platform == .custom {
+                        TextField("rtmp://", text: $server)
+                            .keyboardType(.URL)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    } else {
+                        // Fixed for YouTube and Twitch: shown, not editable.
+                        Text(server).foregroundColor(.muted).lineLimit(1)
+                    }
+                }
+                .field()
                 HStack {
                     SecureField(keySaved ? "Stream key saved" : "Stream key from \(platform.rawValue)", text: $key)
                     if !key.isEmpty {
@@ -168,7 +178,7 @@ private extension View {
     func field() -> some View {
         self
             .font(.text(16, 550))
-            .frame(minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
     }
 }
@@ -257,7 +267,7 @@ private struct BuySheet: View {
             PrimaryButton(title: "Buy for \(skin.price ?? "")", action: buy)
         }
         .padding(24)
-        .presentationDetents([.medium])
+        .presentationDetents([.height(470), .large])
         .presentationBackground(Color.surface)
     }
 }

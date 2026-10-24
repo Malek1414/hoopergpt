@@ -422,7 +422,7 @@ struct LockRing: View {
             .animation(.easeOut(duration: 0.12), value: box)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true }
+            withAnimation(.easeOut(duration: 0.7)) { pulse = true }
         }
     }
 }

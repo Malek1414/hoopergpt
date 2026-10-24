@@ -41,20 +41,18 @@ struct RootView: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: tab, initial: true) {
-            AppDelegate.lock(tab == .watch ? .landscape : .portrait)
+            AppDelegate.allow(tab == .watch ? .allButUpsideDown : .portrait)
         }
     }
 
     private var shell: some View {
         GeometryReader { geo in
-            let landscape = geo.size.width > geo.size.height
             ZStack {
                 Color.ink.ignoresSafeArea()
-                if landscape {
-                    HStack(spacing: 0) {
-                        MenuRail(tab: $tab)
-                        content
-                    }
+                if geo.size.width > geo.size.height {
+                    // Sideways (Watch only): full screen, like any video app.
+                    // Turning the phone upright brings the menu back.
+                    content
                 } else {
                     content
                         .safeAreaInset(edge: .bottom, spacing: 0) { MenuBar(tab: $tab) }
@@ -82,7 +80,7 @@ struct RootView: View {
     }
 }
 
-// MARK: - menu bar (portrait) and rail (landscape)
+// MARK: - menu bar
 
 struct MenuBar: View {
     @Binding var tab: AppTab
@@ -117,40 +115,5 @@ struct MenuBar: View {
         .padding(.top, 6)
         .background(Color.ink.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) { Rectangle().fill(Color.hairline).frame(height: 1) }
-    }
-}
-
-struct MenuRail: View {
-    @Binding var tab: AppTab
-    @Namespace private var marker
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Spacer()
-            ForEach(AppTab.allCases, id: \.self) { item in
-                Button {
-                    withAnimation(.spring(duration: 0.3)) { tab = item }
-                } label: {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            if tab == item {
-                                Capsule().fill(Color.white)
-                                    .matchedGeometryEffect(id: "marker", in: marker)
-                            }
-                        }
-                        .frame(width: 3, height: 16)
-                        Text(item.title)
-                            .font(.wide(12, tab == item ? 800 : 600))
-                            .foregroundColor(tab == item ? .white : .muted)
-                    }
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-        .frame(width: 92)
-        .background(Color.ink)
     }
 }

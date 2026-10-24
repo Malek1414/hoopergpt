@@ -84,7 +84,8 @@ final class LiveFeed: ObservableObject {
         link = .connecting
         if let url = endpoint.streamURL {
             mjpeg.onFrame = { [weak self] image in
-                Task { @MainActor in self?.frame = image }
+                let video = Self.videoPart(of: image)
+                Task { @MainActor in self?.frame = video }
             }
             mjpeg.start(url: url)
         }
@@ -97,6 +98,19 @@ final class LiveFeed: ObservableObject {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
+    }
+
+    /// The Mac sends the 16:9 video with the minimap beside it (1920x720).
+    /// The app wants the picture only; anything much wider than 16:9 is
+    /// cut back to its left 16:9. Goes away once the Mac offers a video-only
+    /// stream.
+    nonisolated static func videoPart(of image: UIImage) -> UIImage {
+        guard let cg = image.cgImage else { return image }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        guard w / h > 2.2, let cut = cg.cropping(to: CGRect(x: 0, y: 0, width: h * 16 / 9, height: h)) else {
+            return image
+        }
+        return UIImage(cgImage: cut)
     }
 
     func stop() {

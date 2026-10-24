@@ -1,23 +1,54 @@
 import SwiftUI
 
-// Watch tab, landscape: the Mac's stream on the left with the score on the
-// glass over it, the numbers on the right next to it. Teams and players come
+// Watch tab: the Mac's stream, landscape as filmed, with the score on the
+// glass over it. Upright: picture on top, numbers underneath. Sideways:
+// the picture fills the screen and the numbers float on glass at the right. Teams and players come
 // from state.json only; nothing is guessed here.
 
 struct WatchView: View {
     @StateObject private var feed = LiveFeed()
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
     @Environment(\.scenePhase) private var scenePhase
+    @State private var statsShown = true
 
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 0) {
-                StreamWindow(frame: feed.frame, link: feed.link, host: bridgeHost, state: feed.state) {
-                    feed.start(host: bridgeHost)
+            let landscape = geo.size.width > geo.size.height
+            let window = StreamWindow(frame: feed.frame, link: feed.link, host: bridgeHost,
+                                      state: feed.state, retry: { feed.start(host: bridgeHost) },
+                                      bleed: landscape)
+            if landscape {
+                ZStack(alignment: .trailing) {
+                    window
+                    if statsShown {
+                        StatsColumn(state: feed.state)
+                            .frame(width: min(300, geo.size.width * 0.36))
+                            .glass(22)
+                            .padding(.vertical, 10)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                 }
-                .frame(width: geo.size.width * 0.6)
-                StatsColumn(state: feed.state)
-                    .frame(maxWidth: .infinity)
+                .overlay(alignment: .bottomTrailing) {
+                    Button {
+                        withAnimation(.spring(duration: 0.35)) { statsShown.toggle() }
+                    } label: {
+                        Text(statsShown ? "Hide stats" : "Stats")
+                            .font(.text(14, 650))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14).frame(height: 36)
+                            .glass(18)
+                    }
+                    .buttonStyle(PressScale())
+                    .padding(.trailing, statsShown ? min(300, geo.size.width * 0.36) + 12 : 0)
+                    .padding(.bottom, 10)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    window
+                        .aspectRatio(16 / 9, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                    StatsColumn(state: feed.state)
+                }
             }
         }
         .background(Color.ink.ignoresSafeArea())
@@ -37,34 +68,37 @@ struct StreamWindow: View {
     let host: String
     let state: GameState?
     let retry: () -> Void
+    /// Sideways: the picture runs under the notch and corners; badges and
+    /// caption stay inside the safe area.
+    var bleed = false
 
     var body: some View {
+        // The container stays inside the safe area and carries the controls;
+        // only the picture behind it may run to the screen edges.
         ZStack {
-            Color.ink
-            if let frame {
-                Image(uiImage: frame)
-                    .resizable()
-                    .scaledToFit()
-                    .overlay(alignment: .topLeading) { badges }
-                    .overlay(alignment: .bottom) { caption }
-            } else {
-                placeholder
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(alignment: .topLeading) { badges }
-            }
+            if frame == nil { placeholder }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            ZStack {
+                Color.ink
+                if let frame {
+                    Image(uiImage: frame)
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+            .clipped()
+            .ignoresSafeArea(edges: bleed ? .all : [])
+        }
+        .overlay(alignment: .topLeading) { badges }
+        .overlay(alignment: bleed ? .bottomLeading : .bottom) { caption.padding(.leading, bleed ? 12 : 0) }
         .animation(.spring(duration: 0.4), value: state?.lastEvent)
-        .clipped()
     }
 
     private var badges: some View {
-            HStack(spacing: 8) {
-                LinkBadge(link: link)
-                if let state, state.teams.count == 2 {
-                    MiniScore(state: state)
-                }
-            }
-            .padding(12)
+            LinkBadge(link: link)
+                .padding(12)
     }
 
     @ViewBuilder
@@ -119,29 +153,6 @@ private struct LinkBadge: View {
     }
 }
 
-private struct MiniScore: View {
-    let state: GameState
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(state.teams) { team in
-                HStack(spacing: 6) {
-                    Rectangle().fill(Color(hex: team.color) ?? .muted).frame(width: 3, height: 14)
-                    Text("\(team.score)")
-                        .font(.wide(16, 900))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                }
-            }
-            Text(state.clock).font(.text(12, 600)).foregroundColor(.white.opacity(0.7))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 12).frame(height: 28)
-        .glass(14)
-        .animation(.spring(duration: 0.5), value: state.teams.map(\.score))
-    }
-}
-
 enum EventText {
     static func sentence(_ event: GameState.GameEvent, players: [GameState.Player]) -> String {
         let number = players.first { $0.key == event.playerKey }?.number
@@ -192,11 +203,13 @@ private struct StatsColumn: View {
 
     private func header(_ state: GameState) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(state.teams[0].name).font(.wide(15, 800)).foregroundColor(.white).lineLimit(1)
+            Text(state.teams[0].name).font(.wide(15, 800)).foregroundColor(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
             Spacer()
             Text("Q\(state.period)  \(state.clock)").font(.text(13, 600)).foregroundColor(.muted).monospacedDigit()
             Spacer()
-            Text(state.teams[1].name).font(.wide(15, 800)).foregroundColor(.white).lineLimit(1)
+            Text(state.teams[1].name).font(.wide(15, 800)).foregroundColor(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
     }
 }
@@ -213,7 +226,7 @@ private struct Versus: View {
             HStack {
                 Text("\(a)").font(.wide(20, 900)).contentTransition(.numericText())
                 Spacer()
-                Text(label).font(.text(13, 550)).foregroundColor(.muted)
+                Text(label).font(.text(14, 550)).foregroundColor(.muted)
                 Spacer()
                 Text("\(b)").font(.wide(20, 900)).contentTransition(.numericText())
             }
@@ -253,13 +266,13 @@ private struct PlayerList: View {
         let share = player.fga > 0 ? CGFloat(player.fgm) / CGFloat(player.fga) : 0
         return HStack(spacing: 12) {
             // No confident number yet: show it greyed instead of inventing one.
-            Text(player.number.map { "\($0)" } ?? "?")
-                .font(.wide(22, 900))
+            Text(player.number.map { "\($0)" } ?? "#?")
+                .font(player.number == nil ? .text(16, 600) : .wide(22, 900))
                 .foregroundColor(player.number == nil ? .muted : .white)
                 .frame(width: 40, alignment: .leading)
             VStack(alignment: .leading, spacing: 5) {
                 Text("\(player.fgm) of \(player.fga)")
-                    .font(.text(13, 550))
+                    .font(.text(14, 550))
                     .foregroundColor(.muted)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
