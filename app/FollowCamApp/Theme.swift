@@ -1,10 +1,9 @@
-import CoreText
 import SwiftUI
 import UIKit
 
-// Floodlight: the picture is the hero, everything else is black glass over
-// it. One typeface (Archivo, variable width + weight), white type, team
-// colours as the only colour. Orange stays for the locked target and REC.
+// Apple-style iOS: SF Pro, system lists, tab bar and sheets, dark. Black,
+// white and orange like the pod; orange is the app tint (actions, the
+// selected tab, the locked player). Team colours only mark a team.
 
 extension Color {
     static let pla = Color(red: 0.92, green: 0.39, blue: 0.08)
@@ -25,45 +24,23 @@ extension Color {
     }
 }
 
-// MARK: - Archivo
-
-enum Archivo {
-    /// Registers the bundled variable font once, at launch.
-    static let base: UIFontDescriptor? = {
-        guard let url = Bundle.main.url(forResource: "Archivo", withExtension: "ttf") else { return nil }
-        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-        let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor]
-        return descriptors?.first.map { $0 as UIFontDescriptor }
-    }()
-
-    /// weight 100...900, width 62...125 (100 = normal, 125 = expanded).
-    static func uiFont(_ size: CGFloat, weight: CGFloat, width: CGFloat) -> UIFont {
-        guard let base else { return .systemFont(ofSize: size, weight: .bold) }
-        let axes: [NSNumber: CGFloat] = [
-            NSNumber(value: 0x7767_6874): weight,   // 'wght'
-            NSNumber(value: 0x7764_7468): width,    // 'wdth'
-        ]
-        let descriptor = base.addingAttributes([
-            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): axes,
-        ])
-        return UIFont(descriptor: descriptor, size: size)
-    }
-}
+// MARK: - type: SF Pro, like the rest of iOS
 
 extension Font {
-    /// Display: wide and heavy, for numbers and titles.
-    static func wide(_ size: CGFloat, _ weight: CGFloat = 850) -> Font {
-        Font(Archivo.uiFont(size, weight: weight, width: 125))
+    /// Display: SF Pro, heavy, for numbers, names and titles.
+    static func wide(_ size: CGFloat, _ weight: CGFloat = 700) -> Font {
+        .system(size: size, weight: weight >= 850 ? .heavy : (weight >= 650 ? .bold : .semibold))
     }
 
-    /// Text: normal width, for sentences and labels.
-    static func text(_ size: CGFloat, _ weight: CGFloat = 500) -> Font {
-        Font(Archivo.uiFont(size, weight: weight, width: 100))
-    }
-
-    /// Old name kept for the camera chrome while it is being restyled.
-    static func mono(_ size: CGFloat, _ weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+    /// Text: SF Pro, for sentences and labels.
+    static func text(_ size: CGFloat, _ weight: CGFloat = 400) -> Font {
+        let w: Font.Weight = switch weight {
+        case ..<450: .regular
+        case ..<575: .medium
+        case ..<675: .semibold
+        default: .bold
+        }
+        return .system(size: size, weight: w)
     }
 }
 
@@ -72,15 +49,13 @@ struct Wordmark: View {
     var size: CGFloat = 34
 
     var body: some View {
-        Text("HOOPER\nGPT")
-            .font(.wide(size, 900))
-            .lineSpacing(-size * 0.2)
-            .foregroundColor(.white)
+        (Text("Hooper").foregroundColor(.white) + Text("GPT").foregroundColor(.pla))
+            .font(.system(size: size, weight: .heavy))
             .accessibilityLabel("HooperGPT")
     }
 }
 
-/// White capsule, black label. The one primary action per screen.
+/// The one primary action per screen: Apple's large prominent button.
 struct PrimaryButton: View {
     let title: String
     var enabled = true
@@ -89,15 +64,14 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.wide(17, 800))
+                .font(.system(size: 17, weight: .semibold))
                 .frame(maxWidth: .infinity)
-                .frame(height: 58)
-                .background(enabled ? Color.white : Color(white: 0.16))
-                .foregroundColor(enabled ? .black : .muted)
-                .clipShape(Capsule())
+                .frame(height: 34)
         }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(.pla)
         .disabled(!enabled)
-        .buttonStyle(PressScale())
     }
 }
 

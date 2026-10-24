@@ -25,9 +25,8 @@ struct GoLiveView: View {
     @AppStorage("skins.owned") private var ownedSkins = "classic"
     @State private var key = ""
     @State private var keySaved = Keychain.get(KeychainKey.rtmpStreamKey) != nil
-    @State private var logos: [UIImage?] = [TeamLogo.load(0), TeamLogo.load(1)]
-    @State private var home = CurrentTeams.home
-    @State private var away = CurrentTeams.away
+    @State private var home = TeamStore.home
+    @State private var away = TeamStore.away
     @State private var editingTeams = false
     // Screenshots: launch with `-debugBuy neon` to open the buy sheet.
     #if DEBUG
@@ -69,7 +68,7 @@ struct GoLiveView: View {
             .overlay(alignment: .top) {
                 ScoreBar(skin: skin, home: home.name.uppercased(), away: away.name.uppercased(),
                          homeColor: Color(hex: home.color) ?? .white, awayColor: Color(hex: away.color) ?? .muted,
-                         homeLogo: logos[0], awayLogo: logos[1])
+                         homeLogo: TeamStore.logo(home.id), awayLogo: TeamStore.logo(away.id))
                     .padding(.top, 12)
                     .id(skin.id)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -83,8 +82,8 @@ struct GoLiveView: View {
     private var teamsLine: some View {
         Button { editingTeams = true } label: {
             HStack(spacing: 12) {
-                TeamBadge(name: home.name, color: Color(hex: home.color) ?? .muted, logo: logos[0], size: 36)
-                TeamBadge(name: away.name, color: Color(hex: away.color) ?? .muted, logo: logos[1], size: 36)
+                TeamBadge(team: home, size: 36)
+                TeamBadge(team: away, size: 36)
                     .padding(.leading, -20)
                 Text("\(home.name) vs \(away.name)")
                     .font(.text(17, 600)).foregroundColor(.white).lineLimit(1)
@@ -98,9 +97,8 @@ struct GoLiveView: View {
     }
 
     private func reloadTeams() {
-        home = CurrentTeams.home
-        away = CurrentTeams.away
-        logos = [TeamLogo.load(0), TeamLogo.load(1)]
+        home = TeamStore.home
+        away = TeamStore.away
     }
 
     // MARK: skins
@@ -206,8 +204,8 @@ private struct SkinCard: View {
                 CourtLines()
                     .frame(width: 170, height: 96)
                     .overlay {
-                        ScoreBar(skin: skin, home: CurrentTeams.home.name.uppercased(),
-                                 away: CurrentTeams.away.name.uppercased(), scale: 0.62)
+                        ScoreBar(skin: skin, home: TeamStore.home.name.uppercased(),
+                                 away: TeamStore.away.name.uppercased(), scale: 0.62)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)

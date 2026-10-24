@@ -100,33 +100,3 @@ struct Slant: Shape {
         }
     }
 }
-
-// MARK: - team logos, kept on the phone
-
-enum TeamLogo {
-    private static func url(_ side: Int) -> URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("logo-\(side).png")
-    }
-
-    static func load(_ side: Int) -> UIImage? {
-        UIImage(contentsOfFile: url(side).path)
-    }
-
-    /// Stored square and small: a logo is a badge, not a photo.
-    static func save(_ image: UIImage, side: Int) -> UIImage? {
-        let size = CGSize(width: 256, height: 256)
-        let square = UIGraphicsImageRenderer(size: size).image { _ in
-            let s = min(image.size.width, image.size.height)
-            let scale = size.width / s
-            let w = image.size.width * scale, h = image.size.height * scale
-            image.draw(in: CGRect(x: (size.width - w) / 2, y: (size.height - h) / 2, width: w, height: h))
-        }
-        guard let data = square.pngData(), (try? data.write(to: url(side))) != nil else { return nil }
-        return square
-    }
-
-    static func remove(_ side: Int) {
-        try? FileManager.default.removeItem(at: url(side))
-    }
-}

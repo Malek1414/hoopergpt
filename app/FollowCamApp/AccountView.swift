@@ -20,11 +20,41 @@ struct AccountView: View {
     @State private var showWhoopKeys = false
     @State private var games: [GameRecord] = []
     @State private var openGame: GameRecord?
+    @State private var teams: [Team] = []
+    @State private var editingTeam: Team?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
                 profile
+                section("Teams") {
+                    ForEach(teams) { team in
+                        Button { editingTeam = team } label: {
+                            HStack(spacing: 14) {
+                                TeamBadge(team: team, size: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(team.name).font(.text(17, 600)).foregroundColor(.white)
+                                    Text("\(team.players.count) players").font(.text(14)).foregroundColor(.muted)
+                                }
+                                Spacer()
+                                Image(systemName: "pencil").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .row()
+                    }
+                    Button {
+                        editingTeam = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).frame(width: 40)
+                            Text("New team").font(.text(17, 600))
+                            Spacer()
+                        }
+                        .foregroundColor(.pla)
+                    }
+                    .row()
+                }
                 section("Games") {
                     if games.isEmpty {
                         Text("Your games show up here after you film one.")
@@ -122,7 +152,16 @@ struct AccountView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Color.ink.ignoresSafeArea())
-        .onAppear { games = GameStore.load() }
+        .onAppear {
+            games = GameStore.load()
+            teams = TeamStore.all()
+        }
+        .sheet(item: $editingTeam) { team in
+            TeamDetailView(team: team) { _ in
+                teams = TeamStore.all()
+                editingTeam = nil
+            }
+        }
         .sheet(item: $openGame) { GameDetailView(game: $0) }
     }
 
@@ -150,7 +189,7 @@ struct AccountView: View {
                 .overlay(Image(systemName: "person.fill").font(.system(size: 24)).foregroundColor(.muted))
                 .frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Guest").font(.wide(26, 850)).foregroundColor(.white)
+                Text("GUEST").font(.wide(34, 900)).foregroundColor(.white)
                 Button("Sign in") {}
                     .font(.text(15, 650))
                     .foregroundColor(.pla)
@@ -161,7 +200,7 @@ struct AccountView: View {
 
     private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(.wide(20, 850)).foregroundColor(.white).padding(.bottom, 6)
+            Text(title.uppercased()).font(.wide(26, 900)).foregroundColor(.white).padding(.bottom, 4)
             content()
         }
     }

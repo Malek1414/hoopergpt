@@ -251,7 +251,7 @@ struct ContentView: View {
                 targetHeld: recFrames > 0 ? Double(recTargetFrames) / Double(recFrames) : 0,
                 hr: recHRRange)
             // Keep the game with whatever the Mac counted, for Account later.
-            let game = GameRecord(date: started, home: CurrentTeams.home, away: CurrentTeams.away,
+            let game = GameRecord(date: started, home: TeamStore.home, away: TeamStore.away,
                                   duration: duration)
             Task {
                 var done = game

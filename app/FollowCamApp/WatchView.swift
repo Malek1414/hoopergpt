@@ -33,8 +33,7 @@ struct WatchView: View {
                         VStack(alignment: .leading, spacing: 24) {
                             teams
                             if let state = feed.state, state.teams.count == 2 {
-                                StatsBlock(state: state, homeName: teams.home.name, awayName: teams.away.name,
-                                           colors: teams.colors)
+                                StatsBlock(state: state, home: teams.home, away: teams.away)
                             } else {
                                 waiting
                             }
@@ -141,8 +140,7 @@ struct WatchView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     teams.compact()
                     if let state = feed.state, state.teams.count == 2 {
-                        StatsBlock(state: state, homeName: teams.home.name, awayName: teams.away.name,
-                                   colors: teams.colors)
+                        StatsBlock(state: state, home: teams.home, away: teams.away)
                     } else {
                         waiting
                     }
@@ -228,15 +226,14 @@ struct TeamsView: View {
     let state: GameState?
     var isCompact = false
 
-    var home: TeamSetup { CurrentTeams.home }
-    var away: TeamSetup { CurrentTeams.away }
-    var colors: (Color, Color) { (Color(hex: home.color) ?? .white, Color(hex: away.color) ?? .muted) }
+    var home: Team { TeamStore.home }
+    var away: Team { TeamStore.away }
 
     func compact() -> TeamsView { TeamsView(state: state, isCompact: true) }
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
-            side(home, colors.0, logo: TeamLogo.load(0), score: state?.teams.first?.score)
+            side(home, score: state?.teams.first?.score)
             VStack(spacing: 2) {
                 if let state {
                     Text("Q\(state.period)").font(.text(13, 600)).foregroundColor(.muted)
@@ -244,14 +241,14 @@ struct TeamsView: View {
                 }
             }
             .frame(width: isCompact ? 52 : 70)
-            side(away, colors.1, logo: TeamLogo.load(1), score: state?.teams.dropFirst().first?.score, trailing: true)
+            side(away, score: state?.teams.dropFirst().first?.score, trailing: true)
         }
     }
 
-    private func side(_ team: TeamSetup, _ color: Color, logo: UIImage?, score: Int?, trailing: Bool = false) -> some View {
+    private func side(_ team: Team, score: Int?, trailing: Bool = false) -> some View {
         VStack(alignment: trailing ? .trailing : .leading, spacing: 8) {
-            TeamBadge(name: team.name, color: color, logo: logo, size: isCompact ? 34 : 44)
-            Text(team.name)
+            TeamBadge(team: team, size: isCompact ? 34 : 48)
+            Text(team.name.uppercased())
                 .font(.wide(isCompact ? 13 : 16, 800))
                 .foregroundColor(.white)
                 .lineLimit(1)
@@ -271,9 +268,10 @@ struct TeamsView: View {
 
 struct StatsBlock: View {
     let state: GameState
-    let homeName: String
-    let awayName: String
-    let colors: (Color, Color)
+    let home: Team
+    let away: Team
+
+    private var colors: (Color, Color) { (Color(hex: home.color) ?? .white, Color(hex: away.color) ?? .muted) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -281,7 +279,7 @@ struct StatsBlock: View {
                 Versus(label: "Shots made", a: state.teams[0].fgm, b: state.teams[1].fgm, colors: colors)
                 Versus(label: "Shots taken", a: state.teams[0].fga, b: state.teams[1].fga, colors: colors)
             }
-            PlayerList(players: state.players.filter(\.isWorthShowing), colors: colors)
+            PlayerList(players: state.players.filter(\.isWorthShowing), home: home, away: away, colors: colors)
         }
     }
 }
@@ -322,6 +320,8 @@ private struct Versus: View {
 
 private struct PlayerList: View {
     let players: [GameState.Player]
+    let home: Team
+    let away: Team
     let colors: (Color, Color)
 
     var body: some View {
@@ -335,6 +335,8 @@ private struct PlayerList: View {
     private func row(_ player: GameState.Player) -> some View {
         let color = player.team == 0 ? colors.0 : (player.team == 1 ? colors.1 : Color(white: 0.3))
         let share = player.fga > 0 ? CGFloat(player.fgm) / CGFloat(player.fga) : 0
+        // The roster turns a jersey number into a name.
+        let known = (player.team == 0 ? home : (player.team == 1 ? away : nil))?.player(number: player.number)
         return HStack(spacing: 12) {
             // No confident number yet: show it quietly instead of inventing one.
             Text(player.number.map { "\($0)" } ?? "#?")
@@ -342,9 +344,14 @@ private struct PlayerList: View {
                 .foregroundColor(player.number == nil ? .muted : .white)
                 .frame(width: 40, alignment: .leading)
             VStack(alignment: .leading, spacing: 5) {
-                Text("\(player.fgm) of \(player.fga)")
-                    .font(.text(14, 550))
-                    .foregroundColor(.muted)
+                HStack(spacing: 8) {
+                    if let known, !known.name.isEmpty {
+                        Text(known.name).font(.text(15, 600)).foregroundColor(.white).lineLimit(1)
+                    }
+                    Text("\(player.fgm) of \(player.fga)")
+                        .font(.text(14, 500))
+                        .foregroundColor(.muted)
+                }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.hairline)
