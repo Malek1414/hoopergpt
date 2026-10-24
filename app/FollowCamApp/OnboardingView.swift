@@ -16,17 +16,7 @@ struct OnboardingView: View {
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                ForEach(0..<4) { i in
-                    Capsule()
-                        .fill(i <= page ? Color.pla : Color(white: 0.2))
-                        .frame(height: 4)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-
+        ZStack(alignment: .top) {
             TabView(selection: $page) {
                 WelcomePage { page = 1 }.tag(0)
                 KitPage { page = 2 }.tag(1)
@@ -34,9 +24,22 @@ struct OnboardingView: View {
                 ConnectPage(host: $bridgeHost, finish: finish).tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(.easeInOut(duration: 0.25), value: page)
+            .animation(.spring(duration: 0.4), value: page)
+
+            if page > 0 {
+                HStack(spacing: 6) {
+                    ForEach(1..<4) { i in
+                        Capsule()
+                            .fill(i <= page ? Color.white : Color.white.opacity(0.18))
+                            .frame(height: 3)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .transition(.opacity)
+            }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.ink.ignoresSafeArea())
         .preferredColorScheme(.dark)
     }
 }
@@ -47,17 +50,21 @@ private struct WelcomePage: View {
     let next: () -> Void
 
     var body: some View {
-        OnboardingPage(buttonTitle: "GET STARTED", action: next) {
-            Spacer()
-            Wordmark(size: 44)
-                .frame(maxWidth: .infinity)
-            Text("Films your game, follows the ball and counts every shot.")
-                .font(.system(size: 19, weight: .medium))
-                .foregroundColor(.chrome)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 14)
-            Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            Wordmark(size: 60)
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+            OnboardingHero()
+                .frame(maxHeight: .infinity)
+                .padding(.vertical, 18)
+            VStack(alignment: .leading, spacing: 22) {
+                HeroCaption()
+                PrimaryButton(title: "Get started", action: next)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 20)
         }
     }
 }
@@ -66,16 +73,15 @@ private struct KitPage: View {
     let next: () -> Void
 
     var body: some View {
-        OnboardingPage(title: "What you need", buttonTitle: "I HAVE IT", action: next) {
-            VStack(spacing: 14) {
-                KitRow(icon: "camera.metering.center.weighted", title: "The pod",
-                       detail: "Your iPhone sits in it on a tripod at the sideline.")
-                KitRow(icon: "laptopcomputer", title: "A Mac with HooperGPT",
-                       detail: "It steers the pod and works out the stats.")
-                KitRow(icon: "wifi", title: "One network",
-                       detail: "Phone and Mac on the same Wi-Fi or hotspot.")
+        OnboardingPage(title: "What you need", buttonTitle: "I have it", action: next) {
+            VStack(spacing: 0) {
+                Line(icon: "camera.metering.center.weighted", title: "The pod",
+                     detail: "Your iPhone in it, tripod at the sideline.")
+                Line(icon: "laptopcomputer", title: "A Mac with HooperGPT",
+                     detail: "It steers the pod and does the stats.")
+                Line(icon: "wifi", title: "One network",
+                     detail: "Phone and Mac on the same Wi-Fi.")
             }
-            Spacer()
         }
     }
 }
@@ -87,32 +93,30 @@ private struct PermissionsPage: View {
     @State private var photos = PHPhotoLibrary.authorizationStatus(for: .addOnly)
 
     var body: some View {
-        OnboardingPage(title: "Allow access", buttonTitle: "CONTINUE", action: next) {
-            VStack(spacing: 14) {
-                PermissionRow(icon: "video", title: "Camera", detail: "To film the game.",
-                              state: .init(camera)) {
-                    AVCaptureDevice.requestAccess(for: .video) { _ in
-                        DispatchQueue.main.async { camera = AVCaptureDevice.authorizationStatus(for: .video) }
+        OnboardingPage(title: "Allow access", buttonTitle: "Continue", action: next) {
+            VStack(spacing: 0) {
+                Line(icon: "video", title: "Camera", detail: "To film the game.") {
+                    PermissionButton(state: .init(camera)) {
+                        AVCaptureDevice.requestAccess(for: .video) { _ in
+                            DispatchQueue.main.async { camera = AVCaptureDevice.authorizationStatus(for: .video) }
+                        }
                     }
                 }
-                PermissionRow(icon: "mic", title: "Microphone", detail: "Court sound in the clip.",
-                              state: .init(mic)) {
-                    AVCaptureDevice.requestAccess(for: .audio) { _ in
-                        DispatchQueue.main.async { mic = AVCaptureDevice.authorizationStatus(for: .audio) }
+                Line(icon: "mic", title: "Microphone", detail: "Court sound in the clip.") {
+                    PermissionButton(state: .init(mic)) {
+                        AVCaptureDevice.requestAccess(for: .audio) { _ in
+                            DispatchQueue.main.async { mic = AVCaptureDevice.authorizationStatus(for: .audio) }
+                        }
                     }
                 }
-                PermissionRow(icon: "photo.on.rectangle", title: "Photos", detail: "Saves each recording.",
-                              state: .init(photos)) {
-                    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                        DispatchQueue.main.async { photos = status }
+                Line(icon: "photo.on.rectangle", title: "Photos", detail: "Saves each recording.") {
+                    PermissionButton(state: .init(photos)) {
+                        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                            DispatchQueue.main.async { photos = status }
+                        }
                     }
                 }
             }
-            Text("You can change this later in Settings.")
-                .font(.footnote)
-                .foregroundColor(.chrome)
-                .padding(.top, 6)
-            Spacer()
         }
     }
 }
@@ -127,50 +131,43 @@ private struct ConnectPage: View {
 
     var body: some View {
         OnboardingPage(title: "Find your Mac",
-                       buttonTitle: check == .ok ? "START FILMING" : "SKIP FOR NOW",
+                       buttonTitle: check == .ok ? "Start filming" : "Skip for now",
                        action: finish) {
-            Text("Enter the address shown on the Mac when HooperGPT starts.")
-                .foregroundColor(.chrome)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            TextField("192.168.1.10", text: $host)
-                .font(.mono(20, .medium))
-                .keyboardType(.URL)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .focused($focused)
-                .padding(16)
-                .background(Color.panel)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .onChange(of: host) { check = .idle }
-            Button {
-                focused = false
-                Task { await test() }
-            } label: {
-                HStack(spacing: 10) {
-                    switch check {
-                    case .idle: Image(systemName: "antenna.radiowaves.left.and.right")
-                    case .checking: ProgressView().tint(.white)
-                    case .ok: Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    case .failed: Image(systemName: "xmark.circle.fill").foregroundColor(.red)
+            VStack(alignment: .leading, spacing: 18) {
+                Text("The address the Mac shows when HooperGPT starts.")
+                    .font(.text(17))
+                    .foregroundColor(.muted)
+                HStack {
+                    TextField("192.168.1.10", text: $host)
+                        .font(.wide(24, 750))
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($focused)
+                        .onChange(of: host) { check = .idle }
+                    Button {
+                        focused = false
+                        Task { await test() }
+                    } label: {
+                        Group {
+                            switch check {
+                            case .idle: Text("Test")
+                            case .checking: ProgressView().tint(.white)
+                            case .ok: Text("Found").foregroundColor(.green)
+                            case .failed: Text("Not found").foregroundColor(.red)
+                            }
+                        }
+                        .font(.text(16, 650))
+                        .foregroundColor(.white)
+                        .frame(minWidth: 60, minHeight: 44)
                     }
-                    Text(checkLabel).font(.mono(14, .bold))
+                    .disabled(check == .checking || host.isEmpty)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(white: 0.3)))
-                .foregroundColor(.white)
+                .padding(.vertical, 8)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(check == .ok ? Color.green : Color.white.opacity(0.3)).frame(height: 2)
+                }
             }
-            .disabled(check == .checking || host.isEmpty)
-            Spacer()
-        }
-    }
-
-    private var checkLabel: String {
-        switch check {
-        case .idle: return "TEST CONNECTION"
-        case .checking: return "LOOKING"
-        case .ok: return "MAC FOUND"
-        case .failed: return "NOT FOUND, CHECK WI-FI"
         }
     }
 
@@ -183,20 +180,19 @@ private struct ConnectPage: View {
 // MARK: - building blocks
 
 private struct OnboardingPage<Content: View>: View {
-    var title: String?
+    let title: String
     let buttonTitle: String
     let action: () -> Void
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            if let title {
-                Text(title)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.top, 28)
-            }
+        VStack(alignment: .leading, spacing: 28) {
+            Text(title)
+                .font(.wide(38, 900))
+                .foregroundColor(.white)
+                .padding(.top, 56)
             content
+            Spacer()
             PrimaryButton(title: buttonTitle, action: action)
         }
         .padding(.horizontal, 24)
@@ -205,26 +201,34 @@ private struct OnboardingPage<Content: View>: View {
     }
 }
 
-private struct KitRow: View {
+/// One line of a list: plain icon, title, one sentence, optional control.
+private struct Line<Trailing: View>: View {
     let icon: String
     let title: String
     let detail: String
+    @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundColor(.pla)
-                .frame(width: 32)
+                .font(.system(size: 22, weight: .medium))
+                .foregroundColor(.white)
+                .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline).foregroundColor(.white)
-                Text(detail).font(.subheadline).foregroundColor(.chrome)
+                Text(title).font(.text(18, 650)).foregroundColor(.white)
+                Text(detail).font(.text(15)).foregroundColor(.muted)
             }
             Spacer(minLength: 0)
+            trailing
         }
-        .padding(16)
-        .background(Color.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.vertical, 18)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
+    }
+}
+
+private extension Line where Trailing == EmptyView {
+    init(icon: String, title: String, detail: String) {
+        self.init(icon: icon, title: title, detail: detail) { EmptyView() }
     }
 }
 
@@ -248,47 +252,29 @@ private enum PermissionState {
     }
 }
 
-private struct PermissionRow: View {
-    let icon: String
-    let title: String
-    let detail: String
+private struct PermissionButton: View {
     let state: PermissionState
     let request: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.pla)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline).foregroundColor(.white)
-                Text(detail).font(.subheadline).foregroundColor(.chrome)
-            }
-            Spacer(minLength: 0)
-            switch state {
-            case .granted:
-                Image(systemName: "checkmark.circle.fill").font(.title3).foregroundColor(.green)
-            case .notAsked:
-                Button("ALLOW", action: request)
-                    .font(.mono(13, .bold))
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(Color.pla)
-                    .foregroundColor(.black)
-                    .clipShape(Capsule())
-            case .denied:
-                // iOS only asks once; after a no, the switch lives in Settings.
-                Button("SETTINGS") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
+        switch state {
+        case .granted:
+            Text("On").font(.text(16, 650)).foregroundColor(.green)
+        case .notAsked:
+            Button("Allow", action: request)
+                .font(.text(16, 700))
+                .foregroundColor(.white)
+                .frame(minWidth: 60, minHeight: 44)
+        case .denied:
+            // iOS only asks once; after a no, the switch lives in Settings.
+            Button("Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
                 }
-                .font(.mono(13, .bold))
-                .foregroundColor(.chrome)
             }
+            .font(.text(16, 650))
+            .foregroundColor(.muted)
+            .frame(minWidth: 60, minHeight: 44)
         }
-        .padding(16)
-        .background(Color.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }

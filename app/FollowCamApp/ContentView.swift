@@ -7,7 +7,8 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
-    @StateObject private var pan = PanController()
+    @ObservedObject var pan: PanController
+    @Binding var showGuide: Bool
     @StateObject private var heart = HeartRateMonitor()
     @StateObject private var whoop = WhoopAuthCoordinator.shared
     @StateObject private var level = MotionLevel()
@@ -16,7 +17,6 @@ struct ContentView: View {
     @State private var players: [CGRect] = []   // detected people, Vision-normalized
     // Remembered between launches: the laptop does not move between court tests.
     @AppStorage("bridgeHost") private var bridgeHost = "192.168.1.10"
-    @State private var showSettings = false
     @State private var recordingStarted: Date?
     @State private var lostFlashUntil: Date?
     @State private var sweptRange: ClosedRange<Double> = 90...90
@@ -31,13 +31,6 @@ struct ContentView: View {
     @State private var recSwept: ClosedRange<Double> = 90...90
     @State private var summary: SessionSummary?
     @AppStorage("didOnboard") private var didOnboard = false
-    @State private var showGuide = false
-    // WHOOP app credentials (reuse the HUSTLR registration: add the redirect
-    // URI followcam://whoop-callback to it at developer.whoop.com)
-    @State private var whoopClientID = Keychain.get(KeychainKey.whoopClientID)
-        ?? "fcdd77dd-47c5-4530-857a-014a480437b0"
-    @State private var whoopSecret = ""
-    @State private var whoopStatus: String?
 
     var body: some View {
         ZStack {
@@ -60,39 +53,30 @@ struct ContentView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 }
 
-            PlayerRings(players: players, locked: subjectBox).allowsHitTesting(false)
+            FloorRings(players: players, locked: subjectBox).allowsHitTesting(false)
 
             if let box = subjectBox {
-                TargetBrackets(box: box).allowsHitTesting(false)
+                LockRing(box: box).allowsHitTesting(false)
             }
 
-            VStack(spacing: 0) {
+            VStack(spacing: 14) {
                 statusStrip
-                PanScale(angle: pan.angle)
-                    .frame(height: 44)
-                LevelLine(roll: level.rollDegrees, isLevel: level.isLevel)
-                    .frame(height: 16)
+                Horizon(angle: pan.angle, roll: level.rollDegrees, isLevel: level.isLevel)
+                    .frame(width: 150, height: 14)
                 Spacer()
-                HStack(alignment: .bottom) {
-                    if let until = lostFlashUntil, until > Date() {
-                        Text("TARGET LOST — TAP TO REACQUIRE")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Color.red)
-                    }
-                    Spacer()
-                    CoverageWedge(angle: pan.angle, swept: sweptRange)
-                        .frame(width: 92, height: 58)
-                        .padding(.trailing, 20)
+                if let until = lostFlashUntil, until > Date() {
+                    Text("Lost them. Tap a player.")
+                        .font(.text(15, 600))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .glass(22)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
                 bottomBar
             }
+            .animation(.easeOut(duration: 0.2), value: lostFlashUntil)
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showSettings) { settingsSheet }
         .sheet(item: $summary) { s in SummaryCard(summary: s, camera: camera) }
         .overlay {
             if showGuide {
@@ -168,17 +152,14 @@ struct ContentView: View {
         if swept != sweptRange { sweptRange = swept }
     }
 
-    // MARK: top status strip — tally lamps + timecode
+    // MARK: top status strip: pod, heart rate, lock, timecode
 
     private var statusStrip: some View {
-        HStack(spacing: 18) {
-            tally("RIG", on: pan.connected, color: .servo) {
-                pan.connect(host: bridgeHost)
-            }
-            // Tap starts the strap search; tap again to stop it. A strap that
-            // is searching shows a pulsing lamp rather than a dead one.
-            tally("HR", on: heart.bpm != nil || heart.scanning, color: .red,
-                  detail: heart.bpm.map { "\($0)" } ?? (heart.scanning ? "HR…" : nil)) {
+        HStack(spacing: 8) {
+            chip("Pod", on: pan.connected) { pan.connect(host: bridgeHost) }
+            // Tap starts the strap search; tap again to stop it.
+            chip(heart.bpm.map { "\($0) bpm" } ?? (heart.scanning ? "Searching" : "Heart"),
+                 on: heart.bpm != nil, pending: heart.scanning) {
                 if heart.isActive { heart.stop() } else { heart.startScan() }
             }
             if tracker.isTracking {
@@ -189,40 +170,39 @@ struct ContentView: View {
                     sweptRange = 90...90
                     pan.recenter()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                        Text("LOCK")
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    }
-                    .foregroundColor(.pla)
+                    Text("Unlock")
+                        .font(.text(14, 650))
+                        .foregroundColor(.pla)
+                        .padding(.horizontal, 14).frame(height: 36)
+                        .glass(18)
                 }
+                .buttonStyle(PressScale())
             }
             Spacer()
             if let started = recordingStarted {
                 TimecodeView(since: started)
-            }
-            Button { showSettings = true } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(.chrome)
+                    .padding(.horizontal, 14).frame(height: 36)
+                    .glass(18)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(.black.opacity(0.55))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 
-    private func tally(_ label: String, on: Bool, color: Color,
-                       detail: String? = nil, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: String, on: Bool, pending: Bool = false,
+                      action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Circle()
-                    .fill(on ? color : Color(white: 0.25))
-                    .frame(width: 8, height: 8)
-                Text(detail ?? label)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(on ? .white : .chrome)
+                    .fill(on ? Color.green : (pending ? Color.white : Color(white: 0.35)))
+                    .frame(width: 7, height: 7)
+                    .opacity(pending ? 0.6 : 1)
+                Text(label).font(.text(14, 650)).foregroundColor(on ? .white : .muted)
             }
+            .padding(.horizontal, 14).frame(height: 36)
+            .glass(18)
         }
+        .buttonStyle(PressScale())
     }
 
     // MARK: bottom bar — record + target state
@@ -256,120 +236,6 @@ struct ContentView: View {
         .padding(.bottom, 30)
     }
 
-    // MARK: settings sheet
-
-    private var settingsSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Rig link") {
-                    // .URL, not .decimalPad: a hostname ("malek-mbp.local")
-                    // could not be typed at all before.
-                    TextField("Laptop IP or hostname", text: $bridgeHost)
-                        .font(.system(.body, design: .monospaced))
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    Toggle("Invert pan direction", isOn: $pan.invert)
-                    Button(pan.connected ? "Reconnect" : "Connect") {
-                        pan.connect(host: bridgeHost)
-                    }
-                    if pan.connected {
-                        Button("Disconnect", role: .destructive) { pan.disconnect() }
-                    }
-                }
-                Section("Recording") {
-                    Text(camera.hasAudio
-                         ? "Sound is recorded with the video."
-                         : "Sound is added on the first recording, if the microphone is allowed.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                Section("WHOOP") {
-                    TextField("Client ID", text: $whoopClientID)
-                        .font(.system(.footnote, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    SecureField("Client secret", text: $whoopSecret)
-                        .font(.system(.footnote, design: .monospaced))
-                    Button("Save keys") {
-                        WhoopClient.configure(clientID: whoopClientID, secret: whoopSecret)
-                        whoopSecret = ""
-                        whoopStatus = "Keys saved"
-                    }
-                    .disabled(whoopClientID.isEmpty || whoopSecret.isEmpty)
-                    Button(whoop.connected ? "Connected — sync latest workout" : "Connect WHOOP") {
-                        Task {
-                            do {
-                                if !whoop.connected { try await whoop.connect() }
-                                let w = try await WhoopClient.shared.exportLatestWorkout()
-                                whoopStatus = w.map {
-                                    "Synced workout: strain \($0.score?.strain.map { String(format: "%.1f", $0) } ?? "–"), max HR \($0.score?.maxHeartRate.map { String(Int($0)) } ?? "–")"
-                                } ?? "Connected — no workout in the last 24h"
-                            } catch {
-                                whoopStatus = error.localizedDescription
-                            }
-                        }
-                    }
-                    if let status = whoopStatus {
-                        Text(status)
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                Section {
-                    Button("Show setup guide") {
-                        showSettings = false
-                        showGuide = true
-                    }
-                }
-            }
-            .navigationTitle("FollowCam")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-// MARK: - pan scale: graduated 40-140 ruler with live needle
-
-struct PanScale: View {
-    let angle: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let pad: CGFloat = 46   // margin lives INSIDE the full-width band so
-                                    // the dark chrome reaches the screen corners
-            let x: (Double) -> CGFloat = { pad + (w - 2 * pad) * ($0 - 40) / 100 }
-            ZStack(alignment: .topLeading) {
-                // ticks every 5 deg, tall every 25
-                ForEach(Array(stride(from: 40, through: 140, by: 5)), id: \.self) { deg in
-                    Rectangle()
-                        .fill(Color.chrome.opacity(deg % 25 == 15 ? 0.9 : 0.45))
-                        .frame(width: 1, height: deg % 25 == 15 ? 12 : 7)
-                        .position(x: x(Double(deg)), y: 8)
-                }
-                ForEach([40, 90, 140], id: \.self) { deg in
-                    Text("\(deg)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(.chrome)
-                        .position(x: x(Double(deg)), y: 26)
-                }
-                // needle + readout share the same x — no parallax at any angle
-                Rectangle()
-                    .fill(Color.pla)
-                    .frame(width: 2, height: 16)
-                    .position(x: x(angle), y: 8)
-                Text("\(Int(angle))°")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(.pla)
-                    .position(x: x(angle), y: 38)
-            }
-            .animation(.linear(duration: 0.08), value: angle)
-        }
-        .padding(.top, 6)
-        .background(.black.opacity(0.55))
-    }
 }
 
 // MARK: - session summary after each recording
@@ -390,47 +256,42 @@ struct SummaryCard: View {
     /// after the sheet appears: saving, saved, or why not.
     private var headline: (String, Color) {
         switch camera.saveState {
-        case .idle, .saving: return ("SAVING TO PHOTOS…", .chrome)
-        case .saved: return ("SESSION SAVED TO PHOTOS", .white)
-        case .failed(let reason): return ("NOT SAVED — \(reason.uppercased())", .red)
+        case .idle, .saving: return ("Saving to Photos", .muted)
+        case .saved: return ("Saved to Photos", .white)
+        case .failed(let reason): return ("Not saved: \(reason)", .red)
         }
     }
 
     private func stat(_ value: String, _ label: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 30, weight: .bold, design: .monospaced))
-                .foregroundColor(.pla)
-            Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundColor(.chrome)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.wide(30, 850)).foregroundColor(.white).monospacedDigit()
+            Text(label).font(.text(14, 500)).foregroundColor(.muted)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var body: some View {
-        VStack(spacing: 26) {
+        VStack(alignment: .leading, spacing: 24) {
             Text(headline.0)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.text(17, 650))
                 .foregroundColor(headline.1)
-                .multilineTextAlignment(.center)
                 .animation(.default, value: camera.saveState)
-            HStack {
+            HStack(alignment: .top) {
                 stat(String(format: "%d:%02d", Int(summary.duration) / 60,
-                            Int(summary.duration) % 60), "RECORDED")
-                stat("\(Int(summary.coverageDeg))°", "PAN COVERED")
-                stat("\(Int(summary.targetHeld * 100))%", "TARGET HELD")
+                            Int(summary.duration) % 60), "filmed")
+                stat("\(Int(summary.coverageDeg))°", "panned")
+                stat("\(Int(summary.targetHeld * 100))%", "on target")
             }
             if let hr = summary.hr {
-                Text("♥ \(hr.lowerBound)–\(hr.upperBound) bpm")
-                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                Text("\(hr.lowerBound) to \(hr.upperBound) bpm")
+                    .font(.text(16, 600))
                     .foregroundColor(.red)
             }
         }
         .padding(28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-        .presentationDetents([.height(260)])
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.surface)
+        .presentationDetents([.height(250)])
     }
 }
 
@@ -443,145 +304,136 @@ struct SetupGuide: View {
     let dismiss: () -> Void
 
     private func step(_ n: Int, _ text: String, done: Bool) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: done ? "checkmark.circle.fill" : "\(n).circle")
-                .font(.system(size: 26))
-                .foregroundColor(done ? .green : .chrome)
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Text(done ? "✓" : "\(n)")
+                .font(.wide(18, 850))
+                .foregroundColor(done ? .green : .muted)
+                .frame(width: 22, alignment: .leading)
             Text(text)
-                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                .foregroundColor(done ? .white : .chrome)
-            Spacer()
+                .font(.text(17, 550))
+                .foregroundColor(done ? .white : Color(white: 0.8))
+            Spacer(minLength: 0)
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Text("FOLLOWCAM SETUP")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(.pla)
-            step(1, "Link the rig — settings icon, enter laptop IP", done: rigLinked)
-            step(2, "Tap the ball (or its carrier) on screen", done: targetSet)
-            step(3, "Hit record — the rig does the rest", done: recording)
-            Button(action: dismiss) {
-                Text(rigLinked && targetSet && recording ? "ROLLING — DISMISS" : "GOT IT")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.pla)
-                    .foregroundColor(.black)
-            }
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Ready in three")
+                .font(.wide(24, 850))
+                .foregroundColor(.white)
+            step(1, "Tap Pod to link the rig", done: rigLinked)
+            step(2, "Tap the player to follow", done: targetSet)
+            step(3, "Hit record", done: recording)
+            PrimaryButton(title: rigLinked && targetSet && recording ? "Rolling" : "Got it", action: dismiss)
+                .padding(.top, 6)
         }
         .padding(24)
-        .background(Color.black.opacity(0.92))
-        .overlay(Rectangle().stroke(Color.pla, lineWidth: 1))
-        .padding(32)
+        .glass(28)
+        .padding(20)
     }
 }
 
-// MARK: - bubble level under the pan scale (green = tripod level)
+// MARK: - horizon: one hairline that tilts with the phone, a dot for the pan
 
-struct LevelLine: View {
+/// Replaces the 40-140 ruler, the bubble level and the coverage wedge.
+/// The line rotates with the roll and brightens when the tripod is level;
+/// the dot slides with the servo angle. No numbers on the picture.
+struct Horizon: View {
+    let angle: Double   // servo 40...140
     let roll: Double
     let isLevel: Bool
 
     var body: some View {
-        ZStack {
-            Rectangle().fill(Color(white: 0.25)).frame(width: 72, height: 1)
-            Rectangle()
-                .fill(isLevel ? Color.green : Color.chrome)
-                .frame(width: 60, height: 2)
-                .rotationEffect(.degrees(-roll))
-                .animation(.linear(duration: 0.1), value: roll)
-        }
-        .frame(maxWidth: .infinity)
-        .background(.black.opacity(0.55))
-    }
-}
-
-// MARK: - court-coverage wedge: what the sweep has covered this play
-
-struct CoverageWedge: View {
-    let angle: Double       // current servo angle
-    let swept: ClosedRange<Double>
-
-    private func rad(_ servoDeg: Double) -> Double {
-        // servo 40..140 -> screen angle: 90 points up, ends spread ±50
-        (270 + (servoDeg - 90)) * .pi / 180
-    }
-
-    var body: some View {
-        Canvas { ctx, size in
-            let c = CGPoint(x: size.width / 2, y: size.height - 6)
-            let r = size.height - 12
-            var lim = Path()
-            lim.addArc(center: c, radius: r, startAngle: .radians(rad(40)),
-                       endAngle: .radians(rad(140)), clockwise: false)
-            ctx.stroke(lim, with: .color(.init(white: 0.35)), lineWidth: 1)
-            if swept.upperBound - swept.lowerBound > 0.5 {
-                var fill = Path()
-                fill.move(to: c)
-                fill.addArc(center: c, radius: r, startAngle: .radians(rad(swept.lowerBound)),
-                            endAngle: .radians(rad(swept.upperBound)), clockwise: false)
-                fill.closeSubpath()
-                ctx.fill(fill, with: .color(.servo.opacity(0.28)))
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack {
+                Capsule()
+                    .fill(Color.white.opacity(isLevel ? 0.75 : 0.3))
+                    .frame(width: w, height: 1.5)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 9, height: 9)
+                    .shadow(color: .black.opacity(0.4), radius: 3)
+                    .offset(x: CGFloat((angle - 90) / 50) * (w / 2))
             }
-            var needle = Path()
-            needle.move(to: c)
-            needle.addLine(to: CGPoint(x: c.x + r * cos(rad(angle)),
-                                       y: c.y + r * sin(rad(angle))))
-            ctx.stroke(needle, with: .color(.pla), lineWidth: 2)
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 3, y: c.y - 3, width: 6, height: 6)),
-                     with: .color(.pla))
+            .frame(width: w, height: geo.size.height)
+            .rotationEffect(.degrees(-roll))
+            .animation(.linear(duration: 0.1), value: roll)
+            .animation(.linear(duration: 0.08), value: angle)
         }
-        .background(.black.opacity(0.55))
+        .accessibilityHidden(true)
     }
 }
 
-// MARK: - detection rings around every player (tap one to lock it)
+// MARK: - floor rings: a soft ellipse at every player's feet (tap one to lock)
 
-struct PlayerRings: View {
-    let players: [CGRect]   // Vision-normalized, origin bottom-left
+private func feet(_ box: CGRect, in size: CGSize) -> (center: CGPoint, width: CGFloat) {
+    // Vision boxes are normalized with the origin bottom-left: minY is the feet.
+    let w = box.width * size.width * 1.15
+    return (CGPoint(x: box.midX * size.width, y: (1 - box.minY) * size.height), w)
+}
+
+struct FloorRings: View {
+    let players: [CGRect]
     let locked: CGRect?
 
     var body: some View {
         GeometryReader { geo in
             ForEach(Array(players.enumerated()), id: \.offset) { _, box in
-                // skip the ring that overlaps the locked target's brackets
                 if locked.map({ hypot($0.midX - box.midX, $0.midY - box.midY) > 0.06 }) ?? true {
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.white.opacity(0.55), lineWidth: 1.2)
-                        .frame(width: box.width * geo.size.width,
-                               height: box.height * geo.size.height)
-                        .position(x: box.midX * geo.size.width,
-                                  y: (1 - box.midY) * geo.size.height)
+                    let f = feet(box, in: geo.size)
+                    Ellipse()
+                        .stroke(Color.white.opacity(0.7), lineWidth: 1.5)
+                        .background(Ellipse().fill(Color.white.opacity(0.08)))
+                        .frame(width: f.width, height: f.width * 0.3)
+                        .position(f.center)
                 }
             }
         }
-        .animation(.linear(duration: 0.12), value: players)
+        .animation(.easeOut(duration: 0.15), value: players)
     }
 }
 
-// MARK: - AF-style corner brackets around the tracked subject
+// MARK: - lock ring: the followed player gets an orange ring and a marker
 
-struct TargetBrackets: View {
-    let box: CGRect  // Vision-normalized, origin bottom-left
+struct LockRing: View {
+    let box: CGRect
+    @State private var pulse = false
 
     var body: some View {
         GeometryReader { geo in
-            let r = CGRect(x: box.minX * geo.size.width,
-                           y: (1 - box.maxY) * geo.size.height,
-                           width: box.width * geo.size.width,
-                           height: box.height * geo.size.height)
-            let arm = min(r.width, r.height) * 0.28
-            Path { p in
-                for (cx, cy, dx, dy) in [(r.minX, r.minY, 1.0, 1.0), (r.maxX, r.minY, -1.0, 1.0),
-                                         (r.minX, r.maxY, 1.0, -1.0), (r.maxX, r.maxY, -1.0, -1.0)] {
-                    p.move(to: CGPoint(x: cx + dx * arm, y: cy))
-                    p.addLine(to: CGPoint(x: cx, y: cy))
-                    p.addLine(to: CGPoint(x: cx, y: cy + dy * arm))
-                }
+            let f = feet(box, in: geo.size)
+            let head = CGPoint(x: box.midX * geo.size.width, y: (1 - box.maxY) * geo.size.height)
+            ZStack {
+                Ellipse()
+                    .stroke(Color.pla.opacity(pulse ? 0 : 0.6), lineWidth: 2)
+                    .frame(width: f.width * (pulse ? 1.5 : 1), height: f.width * 0.3 * (pulse ? 1.5 : 1))
+                    .position(f.center)
+                Ellipse()
+                    .stroke(Color.pla, lineWidth: 3)
+                    .background(Ellipse().fill(Color.pla.opacity(0.18)))
+                    .frame(width: f.width, height: f.width * 0.3)
+                    .position(f.center)
+                Triangle()
+                    .fill(Color.pla)
+                    .frame(width: 14, height: 10)
+                    .position(x: head.x, y: head.y - 14)
             }
-            .stroke(Color.pla, lineWidth: 2.5)
+            .animation(.easeOut(duration: 0.12), value: box)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true }
+        }
+    }
+}
+
+struct Triangle: Shape {
+    func path(in r: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: r.minX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.midX, y: r.maxY))
+            p.closeSubpath()
         }
     }
 }

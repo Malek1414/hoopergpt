@@ -1,7 +1,8 @@
 import SwiftUI
 
-// Watch tab: the Mac's annotated stream with score and box score under it.
-// Teams and players come from state.json only; nothing is guessed here.
+// Watch tab, landscape: the Mac's stream on the left with the score on the
+// glass over it, the numbers on the right next to it. Teams and players come
+// from state.json only; nothing is guessed here.
 
 struct WatchView: View {
     @StateObject private var feed = LiveFeed()
@@ -9,24 +10,17 @@ struct WatchView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                StreamWindow(frame: feed.frame, link: feed.link, host: bridgeHost) {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                StreamWindow(frame: feed.frame, link: feed.link, host: bridgeHost, state: feed.state) {
                     feed.start(host: bridgeHost)
                 }
-                if let state = feed.state {
-                    Scoreboard(state: state)
-                    if let event = state.lastEvent {
-                        EventLine(event: event, teams: state.teams, players: state.players)
-                    }
-                    BoxScore(players: state.players.filter(\.isWorthShowing), teams: state.teams)
-                } else {
-                    EmptyGame()
-                }
+                .frame(width: geo.size.width * 0.6)
+                StatsColumn(state: feed.state)
+                    .frame(maxWidth: .infinity)
             }
-            .padding(16)
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.ink.ignoresSafeArea())
         .onAppear { feed.start(host: bridgeHost) }
         .onDisappear { feed.stop() }
         .onChange(of: scenePhase) {
@@ -41,44 +35,67 @@ struct StreamWindow: View {
     let frame: UIImage?
     let link: LiveFeed.Link
     let host: String
+    let state: GameState?
     let retry: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Rectangle().fill(Color.panel)
+        ZStack {
+            Color.ink
             if let frame {
                 Image(uiImage: frame)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .topLeading) { badges }
+                    .overlay(alignment: .bottom) { caption }
             } else {
                 placeholder
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .topLeading) { badges }
             }
-            LinkBadge(link: link).padding(10)
         }
-        // The Mac decides the layout (video plus minimap is wider than 16:9),
-        // so the window takes the shape of whatever frame arrives.
-        .aspectRatio(frame.map { $0.size.width / max($0.size.height, 1) } ?? 16 / 9, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .animation(.spring(duration: 0.4), value: state?.lastEvent)
+        .clipped()
+    }
+
+    private var badges: some View {
+            HStack(spacing: 8) {
+                LinkBadge(link: link)
+                if let state, state.teams.count == 2 {
+                    MiniScore(state: state)
+                }
+            }
+            .padding(12)
+    }
+
+    @ViewBuilder
+    private var caption: some View {
+            if let state, let event = state.lastEvent {
+                Text(EventText.sentence(event, players: state.players))
+                    .font(.text(15, 600))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(Color.black.opacity(0.8))
+                    .padding(.bottom, 14)
+                    .id(event.t)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
     }
 
     private var placeholder: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             if link == .connecting {
                 ProgressView().tint(.white)
-                Text("Connecting to \(host)").font(.mono(13)).foregroundColor(.chrome)
+                Text("Looking for \(host)").font(.text(15)).foregroundColor(.muted)
             } else {
-                Image(systemName: "play.rectangle")
-                    .font(.system(size: 34))
-                    .foregroundColor(.chrome)
-                Text(link == .badSchema ? "Mac runs a newer version" : "No picture from the Mac")
-                    .font(.mono(13)).foregroundColor(.chrome)
-                Button("TRY AGAIN", action: retry)
-                    .font(.mono(13, .bold))
+                Text(link == .badSchema ? "The Mac runs a newer version" : "No picture from the Mac")
+                    .font(.wide(18, 800))
+                    .foregroundColor(.white)
+                Button("Try again", action: retry)
+                    .font(.text(16, 650))
                     .foregroundColor(.pla)
+                    .frame(minHeight: 44)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -88,146 +105,176 @@ private struct LinkBadge: View {
     var body: some View {
         let (label, color): (String, Color) = switch link {
         case .live: ("LIVE", .red)
-        case .connecting: ("CONNECTING", .chrome)
-        case .lost: ("SIGNAL LOST", .chrome)
-        case .badSchema: ("UPDATE NEEDED", .chrome)
-        case .off: ("OFF", .chrome)
+        case .connecting: ("…", .muted)
+        case .lost: ("Signal lost", .muted)
+        case .badSchema: ("Update", .muted)
+        case .off: ("Off", .muted)
         }
         HStack(spacing: 6) {
-            Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.mono(11, .bold)).foregroundColor(.white)
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(label).font(.wide(11, 900)).foregroundColor(.white)
         }
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(.black.opacity(0.6))
-        .clipShape(Capsule())
+        .padding(.horizontal, 10).frame(height: 28)
+        .glass(14)
     }
 }
 
-// MARK: - score
-
-private struct Scoreboard: View {
+private struct MiniScore: View {
     let state: GameState
 
     var body: some View {
-        HStack(spacing: 0) {
-            if state.teams.count == 2 {
-                side(state.teams[0], alignment: .leading)
-                VStack(spacing: 2) {
-                    Text("Q\(state.period)").font(.mono(12, .bold)).foregroundColor(.chrome)
-                    Text(state.clock).font(.mono(15, .bold)).foregroundColor(.white)
+        HStack(spacing: 10) {
+            ForEach(state.teams) { team in
+                HStack(spacing: 6) {
+                    Rectangle().fill(Color(hex: team.color) ?? .muted).frame(width: 3, height: 14)
+                    Text("\(team.score)")
+                        .font(.wide(16, 900))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
                 }
-                .frame(width: 80)
-                side(state.teams[1], alignment: .trailing)
             }
+            Text(state.clock).font(.text(12, 600)).foregroundColor(.white.opacity(0.7))
         }
-        .padding(16)
-        .background(Color.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func side(_ team: GameState.Team, alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: 4) {
-            HStack(spacing: 6) {
-                Circle().fill(Color(hex: team.color) ?? .chrome).frame(width: 10, height: 10)
-                Text(team.name).font(.headline).foregroundColor(.white).lineLimit(1)
-            }
-            Text("\(team.score)")
-                .font(.system(size: 40, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
-                .monospacedDigit()
-            Text("FG \(team.fgm)/\(team.fga)\(team.fgPct.map { "  \(Int($0 * 100))%" } ?? "")")
-                .font(.mono(11)).foregroundColor(.chrome)
-        }
-        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+        .foregroundColor(.white)
+        .padding(.horizontal, 12).frame(height: 28)
+        .glass(14)
+        .animation(.spring(duration: 0.5), value: state.teams.map(\.score))
     }
 }
 
-private struct EventLine: View {
-    let event: GameState.GameEvent
-    let teams: [GameState.Team]
-    let players: [GameState.Player]
+enum EventText {
+    static func sentence(_ event: GameState.GameEvent, players: [GameState.Player]) -> String {
+        let number = players.first { $0.key == event.playerKey }?.number
+        let who = number.map { "#\($0)" } ?? "Someone"
+        switch event.type {
+        case "made": return "\(who) scores \(event.points)."
+        case "miss": return "\(who) misses."
+        default: return "\(event.points) points, entered by hand."
+        }
+    }
+}
+
+// MARK: - stats next to the picture
+
+private struct StatsColumn: View {
+    let state: GameState?
 
     var body: some View {
-        let team = teams.first { $0.id == event.team }
-        HStack(spacing: 10) {
-            Circle().fill(team.flatMap { Color(hex: $0.color) } ?? .chrome).frame(width: 8, height: 8)
-            Text(text).font(.mono(13)).foregroundColor(.white)
-            Spacer()
+        if let state, state.teams.count == 2 {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    header(state)
+                    VStack(spacing: 14) {
+                        Versus(label: "Points", a: state.teams[0].score, b: state.teams[1].score,
+                               colors: colors(state))
+                        Versus(label: "Shots made", a: state.teams[0].fgm, b: state.teams[1].fgm,
+                               colors: colors(state))
+                        Versus(label: "Shots taken", a: state.teams[0].fga, b: state.teams[1].fga,
+                               colors: colors(state))
+                    }
+                    PlayerList(players: state.players.filter(\.isWorthShowing), teams: state.teams)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+            }
+        } else {
+            Text("Score and players show up once the Mac sends a game.")
+                .font(.text(15))
+                .foregroundColor(.muted)
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(Color.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private var text: String {
-        let number = players.first { $0.key == event.playerKey }?.number
-        let who = number.map { "#\($0)" } ?? "Unknown player"
-        switch event.type {
-        case "made": return "\(who) scores \(event.points)"
-        case "miss": return "\(who) misses"
-        default: return "\(who) \(event.points) pts, entered by hand"
+    private func colors(_ state: GameState) -> (Color, Color) {
+        (Color(hex: state.teams[0].color) ?? .white, Color(hex: state.teams[1].color) ?? .muted)
+    }
+
+    private func header(_ state: GameState) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(state.teams[0].name).font(.wide(15, 800)).foregroundColor(.white).lineLimit(1)
+            Spacer()
+            Text("Q\(state.period)  \(state.clock)").font(.text(13, 600)).foregroundColor(.muted).monospacedDigit()
+            Spacer()
+            Text(state.teams[1].name).font(.wide(15, 800)).foregroundColor(.white).lineLimit(1)
         }
     }
 }
 
-// MARK: - box score
+/// Two numbers and a split bar between them: who is ahead, at a glance.
+private struct Versus: View {
+    let label: String
+    let a: Int
+    let b: Int
+    let colors: (Color, Color)
 
-private struct BoxScore: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text("\(a)").font(.wide(20, 900)).contentTransition(.numericText())
+                Spacer()
+                Text(label).font(.text(13, 550)).foregroundColor(.muted)
+                Spacer()
+                Text("\(b)").font(.wide(20, 900)).contentTransition(.numericText())
+            }
+            .foregroundColor(.white)
+            .monospacedDigit()
+            GeometryReader { geo in
+                // 0:0 is a draw, not a lead: both halves grey and equal.
+                let share = a + b == 0 ? 0.5 : CGFloat(a) / CGFloat(a + b)
+                HStack(spacing: 3) {
+                    Capsule().fill(a + b == 0 ? Color.hairline : colors.0)
+                        .frame(width: max((geo.size.width - 3) * share, 4))
+                    Capsule().fill(a + b == 0 ? Color.hairline : colors.1)
+                }
+            }
+            .frame(height: 6)
+            .animation(.spring(duration: 0.6), value: a)
+            .animation(.spring(duration: 0.6), value: b)
+        }
+    }
+}
+
+private struct PlayerList: View {
     let players: [GameState.Player]
     let teams: [GameState.Team]
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("PLAYER").frame(maxWidth: .infinity, alignment: .leading)
-                Text("PTS").frame(width: 44)
-                Text("FG").frame(width: 56)
-            }
-            .font(.mono(11, .bold)).foregroundColor(.chrome)
-            .padding(.horizontal, 16).padding(.vertical, 10)
             ForEach(players) { player in
                 row(player)
-                if player.id != players.last?.id {
-                    Divider().background(Color(white: 0.18)).padding(.leading, 16)
-                }
             }
         }
-        .background(Color.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     private func row(_ player: GameState.Player) -> some View {
         let team = teams.first { $0.id == player.team }
-        return HStack {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(team.flatMap { Color(hex: $0.color) } ?? Color(white: 0.3))
-                    .frame(width: 8, height: 8)
-                // No confident number yet: show it greyed instead of inventing one.
-                Text(player.number.map { "#\($0)" } ?? "#?")
-                    .font(.mono(15, .bold))
-                    .foregroundColor(player.number == nil ? .chrome : .white)
-                if team == nil {
-                    Text("no team").font(.mono(11)).foregroundColor(.chrome)
+        let color = team.flatMap { Color(hex: $0.color) } ?? Color(white: 0.3)
+        let share = player.fga > 0 ? CGFloat(player.fgm) / CGFloat(player.fga) : 0
+        return HStack(spacing: 12) {
+            // No confident number yet: show it greyed instead of inventing one.
+            Text(player.number.map { "\($0)" } ?? "?")
+                .font(.wide(22, 900))
+                .foregroundColor(player.number == nil ? .muted : .white)
+                .frame(width: 40, alignment: .leading)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("\(player.fgm) of \(player.fga)")
+                    .font(.text(13, 550))
+                    .foregroundColor(.muted)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.hairline)
+                        Capsule().fill(color).frame(width: max(geo.size.width * share, 3))
+                    }
                 }
+                .frame(height: 4)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Text("\(player.pts)").font(.mono(15, .bold)).foregroundColor(.white).frame(width: 44)
-            Text("\(player.fgm)/\(player.fga)").font(.mono(13)).foregroundColor(.chrome).frame(width: 56)
+            Text("\(player.pts)")
+                .font(.wide(22, 900))
+                .foregroundColor(.white)
+                .frame(width: 40, alignment: .trailing)
         }
-        .padding(.horizontal, 16).padding(.vertical, 11)
-    }
-}
-
-private struct EmptyGame: View {
-    var body: some View {
-        Text("Score and players show up here once the Mac sends a game.")
-            .font(.subheadline)
-            .foregroundColor(.chrome)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .padding(24)
-            .background(Color.panel)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
     }
 }

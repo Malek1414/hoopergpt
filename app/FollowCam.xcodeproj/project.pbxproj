@@ -13,7 +13,9 @@
 		4688E63E58AAB22B8645D923 /* SubjectTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27AF71E7F3F13A47A666EAE /* SubjectTracker.swift */; };
 		4AE28DC32ECBB84519DC77CA /* HeartRateParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA566AC1A7E568CE80348D5 /* HeartRateParsingTests.swift */; };
 		4CBB1126A1B5D1648FC5D3A7 /* FollowCamApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DD7F31670DA6C2822E32AA /* FollowCamApp.swift */; };
+		5C99869799271C1E76B2E401 /* CourtScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D255291452B48F7C8C24A497 /* CourtScene.swift */; };
 		63B30589344CAA8E22972772 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14AEFB2F2CEFCC2525D0083 /* OnboardingView.swift */; };
+		7D0C965EBC70779C355AA5B0 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3BA0346782A21A98C8E5055 /* AccountView.swift */; };
 		823722707F1FD7AEABF6B588 /* MotionLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30232EE2CBCA59A33067643 /* MotionLevel.swift */; };
 		89C71200E4A3ED81503AA7CA /* WatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207F14D3B132E979E2ED7A94 /* WatchView.swift */; };
 		94F50A60774CFC8A489A3EA2 /* LiveFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A2011C8C6DCD941EB223F /* LiveFeed.swift */; };
@@ -23,6 +25,9 @@
 		BD26F620EDF5B09274466581 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DC52CA595D2BA46A0E7892 /* RootView.swift */; };
 		BDCA9733E84E270680CB54AD /* HeartRateMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C360BF264F92282F9111E41 /* HeartRateMonitor.swift */; };
 		C554DB2A79D4E20A2C10C7DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 492E3E4506A5789A0926E146 /* Assets.xcassets */; };
+		D1189603A732D3F01BD821D8 /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F74FCAB7C1EA983500316F82 /* OFL.txt */; };
+		D632A5DF2668DE76491E67F4 /* Skins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F467279624230A054200212 /* Skins.swift */; };
+		D73C2C75C5A7B1804370E352 /* Archivo.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B67BEB68B7F4B7D4637EDA23 /* Archivo.ttf */; };
 		F6109972A24E4F5A5C0E514D /* GoLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30CD197F8C0DE27F7463A94C /* GoLiveView.swift */; };
 /* End PBXBuildFile section */
 
@@ -46,16 +51,21 @@
 		30CD197F8C0DE27F7463A94C /* GoLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoLiveView.swift; sourceTree = "<group>"; };
 		492E3E4506A5789A0926E146 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49DD7F31670DA6C2822E32AA /* FollowCamApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowCamApp.swift; sourceTree = "<group>"; };
+		4F467279624230A054200212 /* Skins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skins.swift; sourceTree = "<group>"; };
 		512C980E0C1BBE497EE5CEF2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		632C5AA127A15B6E1A51E3FC /* WhoopSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhoopSync.swift; sourceTree = "<group>"; };
 		7D4AD99F491101D860520E1B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AFA566AC1A7E568CE80348D5 /* HeartRateParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateParsingTests.swift; sourceTree = "<group>"; };
 		B30232EE2CBCA59A33067643 /* MotionLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionLevel.swift; sourceTree = "<group>"; };
 		B33A2011C8C6DCD941EB223F /* LiveFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveFeed.swift; sourceTree = "<group>"; };
+		B67BEB68B7F4B7D4637EDA23 /* Archivo.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Archivo.ttf; sourceTree = "<group>"; };
 		C14AEFB2F2CEFCC2525D0083 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		CBAD033B44B0D81E19DEF423 /* PanController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanController.swift; sourceTree = "<group>"; };
+		D255291452B48F7C8C24A497 /* CourtScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourtScene.swift; sourceTree = "<group>"; };
 		D27AF71E7F3F13A47A666EAE /* SubjectTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectTracker.swift; sourceTree = "<group>"; };
+		E3BA0346782A21A98C8E5055 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		ED27DB56697DF2DCFAE1D0E2 /* FollowCam.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FollowCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F74FCAB7C1EA983500316F82 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -66,6 +76,15 @@
 				1D8CA07A19A2A49C4C6D605F /* FollowCamTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9163923883F9C8C12FB29E33 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				B67BEB68B7F4B7D4637EDA23 /* Archivo.ttf */,
+				F74FCAB7C1EA983500316F82 /* OFL.txt */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		9596D8D7ADE21585C30352FD /* FollowCamTests */ = {
@@ -80,9 +99,11 @@
 		C96C61BDA689E040CDE67790 /* FollowCamApp */ = {
 			isa = PBXGroup;
 			children = (
+				E3BA0346782A21A98C8E5055 /* AccountView.swift */,
 				492E3E4506A5789A0926E146 /* Assets.xcassets */,
 				2479A6A0DD2BA09BED009DD3 /* CameraManager.swift */,
 				512C980E0C1BBE497EE5CEF2 /* ContentView.swift */,
+				D255291452B48F7C8C24A497 /* CourtScene.swift */,
 				49DD7F31670DA6C2822E32AA /* FollowCamApp.swift */,
 				30CD197F8C0DE27F7463A94C /* GoLiveView.swift */,
 				2C360BF264F92282F9111E41 /* HeartRateMonitor.swift */,
@@ -91,10 +112,12 @@
 				C14AEFB2F2CEFCC2525D0083 /* OnboardingView.swift */,
 				CBAD033B44B0D81E19DEF423 /* PanController.swift */,
 				21DC52CA595D2BA46A0E7892 /* RootView.swift */,
+				4F467279624230A054200212 /* Skins.swift */,
 				D27AF71E7F3F13A47A666EAE /* SubjectTracker.swift */,
 				7D4AD99F491101D860520E1B /* Theme.swift */,
 				207F14D3B132E979E2ED7A94 /* WatchView.swift */,
 				632C5AA127A15B6E1A51E3FC /* WhoopSync.swift */,
+				9163923883F9C8C12FB29E33 /* Fonts */,
 			);
 			path = FollowCamApp;
 			sourceTree = "<group>";
@@ -186,7 +209,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D73C2C75C5A7B1804370E352 /* Archivo.ttf in Resources */,
 				C554DB2A79D4E20A2C10C7DB /* Assets.xcassets in Resources */,
+				D1189603A732D3F01BD821D8 /* OFL.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -197,8 +222,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D0C965EBC70779C355AA5B0 /* AccountView.swift in Sources */,
 				3C460C1250B13AD3561A4FD4 /* CameraManager.swift in Sources */,
 				9E4BA78F2467D3487193885A /* ContentView.swift in Sources */,
+				5C99869799271C1E76B2E401 /* CourtScene.swift in Sources */,
 				4CBB1126A1B5D1648FC5D3A7 /* FollowCamApp.swift in Sources */,
 				F6109972A24E4F5A5C0E514D /* GoLiveView.swift in Sources */,
 				BDCA9733E84E270680CB54AD /* HeartRateMonitor.swift in Sources */,
@@ -207,6 +234,7 @@
 				63B30589344CAA8E22972772 /* OnboardingView.swift in Sources */,
 				1F334A9711C4BF1BB2AE7291 /* PanController.swift in Sources */,
 				BD26F620EDF5B09274466581 /* RootView.swift in Sources */,
+				D632A5DF2668DE76491E67F4 /* Skins.swift in Sources */,
 				4688E63E58AAB22B8645D923 /* SubjectTracker.swift in Sources */,
 				9E814BDD5ABA0F2E4BB8D41E /* Theme.swift in Sources */,
 				89C71200E4A3ED81503AA7CA /* WatchView.swift in Sources */,
