@@ -107,7 +107,10 @@ struct AccountView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                .contentShape(Rectangle())
             }
+            // A settings row, not a tinted link: label white, value grey.
+            .buttonStyle(.plain)
             Toggle("Reverse Pan", isOn: $pan.invert)
             NavigationLink {
                 HeartRateView()
