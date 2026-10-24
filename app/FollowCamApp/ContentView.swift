@@ -1,9 +1,9 @@
 import AVFoundation
 import SwiftUI
 
-// Viewfinder chrome: broadcast-camera vocabulary — tally lamps, a graduated
-// pan scale with a live needle, monospaced telemetry, AF-corner target box.
-// Orange = the printed parts' PLA; blue = servo; red = REC only.
+// Film tab: the viewfinder, chrome like Apple's Camera app. Glass capsules
+// for the pod and the strap at the top, the timecode in red while recording,
+// the shutter at the bottom. Orange marks the followed player, red is REC.
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
@@ -61,33 +61,37 @@ struct ContentView: View {
                 LockRing(box: box).allowsHitTesting(false)
             }
 
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 statusStrip
+                if let started = recordingStarted {
+                    TimecodeView(since: started)
+                        .transition(.opacity)
+                }
                 Horizon(angle: pan.angle, roll: level.rollDegrees, isLevel: level.isLevel)
                     .frame(width: 150, height: 14)
                 Spacer()
                 if let until = lostFlashUntil, until > Date() {
                     Text("Lost them. Tap a player.")
-                        .font(.text(15, 600))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .glass(22)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16).frame(height: 40)
+                        .glass(20)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
                 bottomBar
             }
             .animation(.easeOut(duration: 0.2), value: lostFlashUntil)
+            .animation(.easeOut(duration: 0.2), value: recordingStarted)
         }
         .preferredColorScheme(.dark)
         .sheet(item: $summary) { s in SummaryCard(summary: s, camera: camera) }
-        .overlay {
-            if showGuide {
-                SetupGuide(rigLinked: pan.connected,
-                           targetSet: tracker.isTracking,
-                           recording: camera.isRecording) {
-                    showGuide = false
-                    didOnboard = true
-                }
+        // A sheet that leaves the camera usable behind it: the steps tick off
+        // live while the user taps Pod and a player.
+        .sheet(isPresented: $showGuide, onDismiss: { didOnboard = true }) {
+            SetupGuide(rigLinked: pan.connected,
+                       targetSet: tracker.isTracking,
+                       recording: camera.isRecording) {
+                showGuide = false
             }
         }
         .onAppear {
@@ -164,6 +168,7 @@ struct ContentView: View {
                  on: heart.bpm != nil, pending: heart.scanning) {
                 if heart.isActive { heart.stop() } else { heart.startScan() }
             }
+            Spacer()
             if tracker.isTracking {
                 Button {
                     tracker.clear()
@@ -173,18 +178,12 @@ struct ContentView: View {
                     pan.recenter()
                 } label: {
                     Text("Unlock")
-                        .font(.text(14, 650))
-                        .foregroundColor(.pla)
-                        .padding(.horizontal, 14).frame(height: 36)
-                        .glass(18)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.pla)
+                        .padding(.horizontal, 16).frame(height: 38)
+                        .glass(19)
                 }
                 .buttonStyle(PressScale())
-            }
-            Spacer()
-            if let started = recordingStarted {
-                TimecodeView(since: started)
-                    .padding(.horizontal, 14).frame(height: 36)
-                    .glass(18)
             }
         }
         .padding(.horizontal, 16)
@@ -196,15 +195,18 @@ struct ContentView: View {
         Button(action: action) {
             HStack(spacing: 7) {
                 Circle()
-                    .fill(on ? Color.green : (pending ? Color.white : Color(white: 0.35)))
+                    .fill(on ? Color.green : Color.white.opacity(pending ? 0.6 : 0.3))
                     .frame(width: 7, height: 7)
-                    .opacity(pending ? 0.6 : 1)
-                Text(label).font(.text(14, 650)).foregroundColor(on ? .white : .muted)
+                Text(label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(on ? Color.white : Color.white.opacity(0.7))
+                    .monospacedDigit()
             }
-            .padding(.horizontal, 14).frame(height: 36)
-            .glass(18)
+            .padding(.horizontal, 14).frame(height: 38)
+            .glass(19)
         }
         .buttonStyle(PressScale())
+        .accessibilityValue(on ? "On" : "Off")
     }
 
     // MARK: bottom bar — record + target state
@@ -215,13 +217,17 @@ struct ContentView: View {
                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                 if camera.isRecording {
                     stopGame()
+                } else if showGuide {
+                    // One sheet at a time: the guide steps aside for the setup.
+                    showGuide = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { settingUpGame = true }
                 } else {
                     // Teams first, so the game is named before the first frame.
                     settingUpGame = true
                 }
             }
         }
-        .padding(.bottom, 30)
+        .padding(.bottom, 20)
         .sheet(isPresented: $settingUpGame) {
             GameSetupView(start: {
                 settingUpGame = false
@@ -277,52 +283,76 @@ struct SessionSummary: Identifiable {
 struct SummaryCard: View {
     let summary: SessionSummary
     @ObservedObject var camera: CameraManager
+    @Environment(\.dismiss) private var dismiss
 
-    /// The headline tells the truth about the save, which finishes a moment
-    /// after the sheet appears: saving, saved, or why not.
-    private var headline: (String, Color) {
+    /// Tells the truth about the save, which finishes a moment after the
+    /// sheet appears: saving, saved, or why not.
+    @ViewBuilder private var saveStatus: some View {
         switch camera.saveState {
-        case .idle, .saving: return ("Saving to Photos", .muted)
-        case .saved: return ("Saved to Photos", .white)
-        case .failed(let reason): return ("Not saved: \(reason)", .red)
+        case .idle, .saving:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Saving to Photos")
+            }
+            .foregroundStyle(.secondary)
+        case .saved:
+            Label("Saved to Photos", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.secondary)
+        case .failed(let reason):
+            Label("Not saved: \(reason)", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
         }
     }
 
     private func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.wide(30, 850)).foregroundColor(.white).monospacedDigit()
-            Text(label).font(.text(14, 500)).foregroundColor(.muted)
+            Text(value)
+                .font(.system(size: 34, weight: .bold))
+                .monospacedDigit()
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text(headline.0)
-                .font(.text(17, 650))
-                .foregroundColor(headline.1)
-                .animation(.default, value: camera.saveState)
-            HStack(alignment: .top) {
-                stat(String(format: "%d:%02d", Int(summary.duration) / 60,
-                            Int(summary.duration) % 60), "filmed")
-                stat("\(Int(summary.coverageDeg))°", "panned")
-                stat("\(Int(summary.targetHeld * 100))%", "on target")
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .top) {
+                    stat(String(format: "%d:%02d", Int(summary.duration) / 60,
+                                Int(summary.duration) % 60), "Filmed")
+                    stat("\(Int(summary.coverageDeg))°", "Panned")
+                    stat("\(Int(summary.targetHeld * 100))%", "On target")
+                }
+                if let hr = summary.hr {
+                    Label("\(hr.lowerBound) to \(hr.upperBound) bpm", systemImage: "heart.fill")
+                        .monospacedDigit()
+                }
+                saveStatus
+                    .font(.subheadline)
+                    .animation(.default, value: camera.saveState)
+                Spacer(minLength: 0)
             }
-            if let hr = summary.hr {
-                Text("\(hr.lowerBound) to \(hr.upperBound) bpm")
-                    .font(.text(16, 600))
-                    .foregroundColor(.red)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .navigationTitle("Game Recorded")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
             }
         }
-        .padding(28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.surface)
-        .presentationDetents([.height(250)])
+        .presentationDetents([.height(300)])
     }
 }
 
 // MARK: - first-launch setup guide (doubles as the demo script)
 
+/// A short sheet that leaves the viewfinder usable: each step ticks off
+/// as it happens.
 struct SetupGuide: View {
     let rigLinked: Bool
     let targetSet: Bool
@@ -330,32 +360,36 @@ struct SetupGuide: View {
     let dismiss: () -> Void
 
     private func step(_ n: Int, _ text: String, done: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Text(done ? "✓" : "\(n)")
-                .font(.wide(18, 850))
-                .foregroundColor(done ? .green : .muted)
-                .frame(width: 22, alignment: .leading)
+        Label {
             Text(text)
-                .font(.text(17, 550))
-                .foregroundColor(done ? .white : Color(white: 0.8))
-            Spacer(minLength: 0)
+                .foregroundStyle(done ? .secondary : .primary)
+        } icon: {
+            Image(systemName: done ? "checkmark.circle.fill" : "\(n).circle")
+                .font(.title2)
+                .foregroundStyle(done ? Color.green : Color.secondary)
         }
+        .padding(.vertical, 4)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Ready in three")
-                .font(.wide(24, 850))
-                .foregroundColor(.white)
-            step(1, "Tap Pod to link the rig", done: rigLinked)
-            step(2, "Tap the player to follow", done: targetSet)
-            step(3, "Hit record", done: recording)
-            PrimaryButton(title: rigLinked && targetSet && recording ? "Rolling" : "Got it", action: dismiss)
-                .padding(.top, 6)
+        NavigationStack {
+            List {
+                step(1, "Tap Pod to link the rig", done: rigLinked)
+                step(2, "Tap the player to follow", done: targetSet)
+                step(3, "Hit record", done: recording)
+            }
+            .listStyle(.insetGrouped)
+            .scrollDisabled(true)
+            .navigationTitle("Ready in Three")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done", action: dismiss)
+                }
+            }
         }
-        .padding(24)
-        .glass(28)
-        .padding(20)
+        .presentationDetents([.height(300)])
+        .presentationBackgroundInteraction(.enabled)
     }
 }
 
@@ -464,7 +498,7 @@ struct Triangle: Shape {
     }
 }
 
-// MARK: - camera-idiom record button: red core morphs to a square
+// MARK: - shutter like Apple Camera's video mode: red disc becomes a square
 
 struct RecordButton: View {
     let isRecording: Bool
@@ -474,19 +508,22 @@ struct RecordButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .stroke(.white, lineWidth: 3.5)
-                    .frame(width: 66, height: 66)
-                RoundedRectangle(cornerRadius: isRecording ? 6 : 27)
-                    .fill(.red)
-                    .frame(width: isRecording ? 30 : 54,
-                           height: isRecording ? 30 : 54)
+                    .strokeBorder(.white, lineWidth: 4)
+                    .frame(width: 78, height: 78)
+                RoundedRectangle(cornerRadius: isRecording ? 7 : 32, style: .continuous)
+                    .fill(Color.red)
+                    .frame(width: isRecording ? 30 : 64,
+                           height: isRecording ? 30 : 64)
             }
-            .animation(.spring(duration: 0.25), value: isRecording)
+            .contentShape(Circle())
+            .animation(.spring(duration: 0.3), value: isRecording)
         }
+        .buttonStyle(PressScale())
+        .accessibilityLabel(isRecording ? "Stop recording" : "Record")
     }
 }
 
-// MARK: - live timecode while recording
+// MARK: - live timecode while recording, red like Apple Camera
 
 struct TimecodeView: View {
     let since: Date
@@ -494,13 +531,12 @@ struct TimecodeView: View {
     var body: some View {
         TimelineView(.periodic(from: since, by: 1)) { context in
             let s = Int(context.date.timeIntervalSince(since))
-            HStack(spacing: 6) {
-                Circle().fill(.red).frame(width: 8, height: 8)
-                    .opacity(s % 2 == 0 ? 1 : 0.35)
-                Text(String(format: "%02d:%02d", s / 60, s % 60))
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
-            }
+            Text(String(format: "%02d:%02d:%02d", s / 3600, s / 60 % 60, s % 60))
+                .font(.system(size: 17, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(Color.red, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }
 }

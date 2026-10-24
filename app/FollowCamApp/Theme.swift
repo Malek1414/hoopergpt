@@ -7,8 +7,6 @@ import UIKit
 
 extension Color {
     static let pla = Color(red: 0.92, green: 0.39, blue: 0.08)
-    static let servo = Color(red: 0.15, green: 0.38, blue: 0.90)
-    static let chrome = Color(white: 0.55)
     static let ink = Color.black
     static let surface = Color(white: 0.055)
     static let hairline = Color(white: 0.13)
@@ -84,17 +82,20 @@ struct PressScale: ButtonStyle {
     }
 }
 
-/// Black glass for anything that floats over the picture.
+/// Glass for anything that floats over the picture: Liquid Glass on iOS 26,
+/// a dark material before that.
 struct Glass: ViewModifier {
     var radius: CGFloat = 16
 
     func body(content: Content) -> some View {
-        content
-            .background(.ultraThinMaterial.opacity(0.9))
-            .background(Color.black.opacity(0.45))
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .stroke(Color.white.opacity(0.08)))
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if #available(iOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background(Color.black.opacity(0.3), in: shape)
+        }
     }
 }
 
