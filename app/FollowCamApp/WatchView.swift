@@ -17,32 +17,45 @@ struct WatchView: View {
 
     private var teams: TeamsView { TeamsView(state: feed.state) }
 
+    /// Something to show: a picture or at least the Mac's numbers.
+    private var connected: Bool { feed.frame != nil || feed.state != nil }
+
     var body: some View {
         GeometryReader { geo in
-            if geo.size.width > geo.size.height {
+            if !connected {
+                NavigationStack {
+                    noStream.navigationTitle("Watch")
+                }
+            } else if geo.size.width > geo.size.height {
                 sideways(width: min(310, geo.size.width * 0.38))
             } else {
-                VStack(spacing: 0) {
-                    StreamPicture(frame: feed.frame, link: feed.link, host: bridgeHost) {
-                        feed.start(host: bridgeHost)
-                    }
-                    .aspectRatio(16 / 9, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .overlay(alignment: .topLeading) { LiveDot(link: feed.link).padding(12) }
+                NavigationStack {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 28) {
-                            teams
+                            StreamPicture(frame: feed.frame, link: feed.link, host: bridgeHost) {
+                                feed.start(host: bridgeHost)
+                            }
+                            .aspectRatio(16 / 9, contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             if let state = feed.state, state.teams.count == 2 {
+                                teams
                                 StatsBlock(state: state, home: teams.home, away: teams.away)
-                            } else {
-                                waiting
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 20)
                         .padding(.bottom, 24)
                     }
-                    .background(Color(.systemBackground))
+                    .navigationTitle("Watch")
+                    .toolbar {
+                        if feed.link == .live {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Label("Live", systemImage: "circle.fill")
+                                    .labelStyle(.titleAndIcon)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -60,6 +73,18 @@ struct WatchView: View {
     private var waiting: some View {
         ContentUnavailableView("No Game Yet", systemImage: "sportscourt",
                                description: Text("Score and players show up once the Mac sends a game."))
+    }
+
+    private var noStream: some View {
+        ContentUnavailableView {
+            Label("No Stream", systemImage: "play.slash")
+        } description: {
+            Text("Start HooperGPT on your Mac, on the same Wi-Fi as this iPhone.")
+        } actions: {
+            Button("Reconnect") { feed.start(host: bridgeHost) }
+                .buttonStyle(.borderedProminent)
+                .tint(.pla)
+        }
     }
 
     // MARK: sideways: full picture, pull-in drawer
@@ -136,7 +161,7 @@ struct WatchView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 32, height: 64)
+                    .frame(width: 44, height: 64)
             }
             .accessibilityLabel("Hide stats")
             ScrollView {
@@ -236,35 +261,47 @@ struct TeamsView: View {
     func compact() -> TeamsView { TeamsView(state: state, isCompact: true) }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            side(home, score: state?.teams.first?.score)
+        HStack(alignment: .center, spacing: 8) {
+            side(home)
+            Spacer(minLength: 4)
             VStack(spacing: 2) {
+                HStack(spacing: 22) {
+                    score(state?.teams.first?.score)
+                    score(state?.teams.dropFirst().first?.score)
+                }
                 if let state {
-                    Text("Q\(state.period)").font(.caption.weight(.semibold)).foregroundColor(.secondary)
-                    Text(state.clock).font(.subheadline.weight(.semibold)).foregroundColor(.white).monospacedDigit()
+                    Text("Q\(state.period)  \(state.clock)")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
-            .frame(width: isCompact ? 52 : 70)
-            side(away, score: state?.teams.dropFirst().first?.score, trailing: true)
+            .fixedSize()
+            .layoutPriority(1)
+            Spacer(minLength: 4)
+            side(away)
         }
+        .animation(.spring(duration: 0.5), value: state?.teams.map(\.score))
     }
 
-    private func side(_ team: Team, score: Int?, trailing: Bool = false) -> some View {
-        VStack(alignment: trailing ? .trailing : .leading, spacing: 6) {
-            TeamBadge(team: team, size: isCompact ? 34 : 52)
+    private func side(_ team: Team) -> some View {
+        VStack(spacing: 6) {
+            TeamBadge(team: team, size: isCompact ? 34 : 48)
             Text(team.name)
-                .font(isCompact ? .subheadline.weight(.semibold) : .headline)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(score.map(String.init) ?? "0")
-                .font(.system(size: isCompact ? 36 : 56, weight: .bold))
-                .foregroundColor(.white)
-                .monospacedDigit()
-                .contentTransition(.numericText())
+                .font(isCompact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
-        .animation(.spring(duration: 0.5), value: score)
+        .frame(width: isCompact ? 64 : 84)
+    }
+
+    private func score(_ value: Int?) -> some View {
+        Text(value.map(String.init) ?? "0")
+            .font(.system(size: isCompact ? 36 : 56, weight: .bold))
+            .monospacedDigit()
+            .contentTransition(.numericText())
     }
 }
 
