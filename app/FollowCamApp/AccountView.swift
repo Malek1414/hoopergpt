@@ -1,7 +1,13 @@
 import SwiftUI
 
-// Account tab: who you are, your pod, your strap, what you bought.
-// The old settings sheet from the camera screen lives here now.
+// Account tab: who you are, your teams and games, your pod, your strap,
+// what you bought. Settings style: one inset grouped list.
+//
+// Screenshot flags (DEBUG only):
+//   -debugTeam YES     opens the first team's detail sheet
+//   -debugTeam NEW     opens the new-team sheet
+//   -debugGame YES     pushes the first game
+//   -debugPlayer YES   (with -debugTeam) also opens the first player's editor
 
 struct AccountView: View {
     @ObservedObject var pan: PanController
@@ -19,190 +25,218 @@ struct AccountView: View {
     @State private var whoopStatus: String?
     @State private var showWhoopKeys = false
     @State private var games: [GameRecord] = []
-    @State private var openGame: GameRecord?
     @State private var teams: [Team] = []
     @State private var editingTeam: Team?
+    @State private var path: [UUID] = []
+    @State private var didDebug = false
+
+    private var owned: [Skin] {
+        Skin.all.filter { ownedSkins.split(separator: ",").contains(Substring($0.id)) }
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 36) {
+        NavigationStack(path: $path) {
+            List {
                 profile
-                section("Teams") {
-                    ForEach(teams) { team in
-                        Button { editingTeam = team } label: {
-                            HStack(spacing: 14) {
-                                TeamBadge(team: team, size: 40)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(team.name).font(.text(17, 600)).foregroundColor(.white)
-                                    Text("\(team.players.count) players").font(.text(14)).foregroundColor(.muted)
-                                }
-                                Spacer()
-                                Image(systemName: "pencil").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        .row()
-                    }
-                    Button {
-                        editingTeam = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).frame(width: 40)
-                            Text("New team").font(.text(17, 600))
-                            Spacer()
-                        }
-                        .foregroundColor(.pla)
-                    }
-                    .row()
-                }
-                section("Games") {
-                    if games.isEmpty {
-                        Text("Your games show up here after you film one.")
-                            .font(.text(16)).foregroundColor(.muted).row()
-                    }
-                    ForEach(games) { game in
-                        Button { openGame = game } label: { gameRow(game) }
-                            .row()
-                    }
-                }
-                section("Pod") {
-                    HStack {
-                        TextField("Mac address", text: $bridgeHost)
-                            .font(.text(17, 550))
-                            .keyboardType(.URL)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                        Button(pan.connected ? "Connected" : "Connect") { pan.connect(host: bridgeHost) }
-                            .font(.text(15, 650))
-                            .foregroundColor(pan.connected ? .green : .white)
-                    }
-                    .row()
-                    Toggle("Turn the other way", isOn: $pan.invert)
-                        .font(.text(17, 550))
-                        .tint(.pla)
-                        .row()
-                    if pan.connected {
-                        Button("Disconnect", role: .destructive) { pan.disconnect() }
-                            .font(.text(17, 550))
-                            .row()
-                    }
-                }
-                section("Heart rate") {
-                    Button {
-                        Task { await syncWhoop() }
-                    } label: {
-                        HStack {
-                            Text(whoop.connected ? "WHOOP connected" : "Connect WHOOP")
-                            Spacer()
-                            Text(whoop.connected ? "Sync" : "")
-                                .foregroundColor(.muted)
-                        }
-                        .font(.text(17, 550))
-                        .foregroundColor(.white)
-                    }
-                    .row()
-                    if let whoopStatus {
-                        Text(whoopStatus).font(.text(14)).foregroundColor(.muted).row()
-                    }
-                    DisclosureGroup("Developer keys", isExpanded: $showWhoopKeys) {
-                        VStack(spacing: 12) {
-                            TextField("Client ID", text: $whoopClientID)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                            SecureField("Client secret", text: $whoopSecret)
-                            Button("Save keys") {
-                                WhoopClient.configure(clientID: whoopClientID, secret: whoopSecret)
-                                whoopSecret = ""
-                                whoopStatus = "Keys saved"
-                            }
-                            .disabled(whoopClientID.isEmpty || whoopSecret.isEmpty)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .font(.text(15))
-                        .padding(.top, 12)
-                    }
-                    .font(.text(17, 550))
-                    .tint(.muted)
-                    .row()
-                }
-                section("Skins") {
-                    ForEach(Skin.all.filter { ownedSkins.split(separator: ",").contains(Substring($0.id)) }) { skin in
-                        Button { selectedSkin = skin.id } label: {
-                            HStack {
-                                Text(skin.name).font(.text(17, 550)).foregroundColor(.white)
-                                Spacer()
-                                if skin.id == selectedSkin {
-                                    Text("On").font(.text(15, 650)).foregroundColor(.green)
-                                }
-                            }
-                        }
-                        .row()
-                    }
-                }
-                section("Help") {
-                    Button("Show the setup steps again", action: replayGuide)
-                        .font(.text(17, 550))
-                        .foregroundColor(.white)
-                        .row()
+                teamsSection
+                gamesSection
+                podSection
+                heartRateSection
+                skinsSection
+                Section("Help") {
+                    Button("Show Setup Steps Again", action: replayGuide)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-            .padding(.bottom, 40)
+            .listStyle(.insetGrouped)
+            .navigationTitle("Account")
+            .scrollDismissesKeyboard(.interactively)
+            .navigationDestination(for: UUID.self) { id in
+                if let game = games.first(where: { $0.id == id }) { GameDetailView(game: game) }
+            }
         }
-        .scrollDismissesKeyboard(.interactively)
-        .background(Color.ink.ignoresSafeArea())
-        .onAppear {
-            games = GameStore.load()
-            teams = TeamStore.all()
-        }
+        .onAppear(perform: reload)
         .sheet(item: $editingTeam) { team in
             TeamDetailView(team: team) { _ in
                 teams = TeamStore.all()
                 editingTeam = nil
             }
         }
-        .sheet(item: $openGame) { GameDetailView(game: $0) }
+    }
+
+    // MARK: sections
+
+    private var profile: some View {
+        Section {
+            HStack(spacing: 16) {
+                Image(systemName: "person.crop.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 60))
+                    .foregroundStyle(.secondary)
+                Text("Guest").font(.title2.weight(.semibold))
+            }
+            .padding(.vertical, 6)
+            Button("Sign In") {}
+        }
+    }
+
+    private var teamsSection: some View {
+        Section("Teams") {
+            ForEach(teams) { team in
+                Button { editingTeam = team } label: {
+                    HStack(spacing: 14) {
+                        TeamBadge(team: team, size: 36)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(team.name).foregroundStyle(.primary)
+                            Text(team.players.count == 1 ? "1 player" : "\(team.players.count) players")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Button {
+                editingTeam = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
+            } label: {
+                Label("New Team", systemImage: "plus")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var gamesSection: some View {
+        Section {
+            ForEach(games) { game in
+                NavigationLink(value: game.id) { gameRow(game) }
+            }
+        } header: {
+            Text("Games")
+        } footer: {
+            if games.isEmpty { Text("Games you film show up here.") }
+        }
+    }
+
+    private var podSection: some View {
+        Section {
+            HStack {
+                TextField("Mac Address", text: $bridgeHost)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.go)
+                    .onSubmit { pan.connect(host: bridgeHost) }
+                if pan.connected {
+                    Label("Connected", systemImage: "checkmark.circle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.subheadline)
+                        .foregroundStyle(.green)
+                } else {
+                    Button("Connect") { pan.connect(host: bridgeHost) }
+                        .buttonStyle(.borderless)
+                        .disabled(bridgeHost.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            Toggle("Reverse Pan", isOn: $pan.invert)
+            if pan.connected {
+                Button("Disconnect", role: .destructive) { pan.disconnect() }
+            }
+        } header: {
+            Text("Pod")
+        } footer: {
+            Text("Turn on Reverse Pan if the pod turns away from the action.")
+        }
+    }
+
+    private var heartRateSection: some View {
+        Section {
+            Button {
+                Task { await syncWhoop() }
+            } label: {
+                LabeledContent(whoop.connected ? "WHOOP Connected" : "Connect WHOOP") {
+                    if whoop.connected { Text("Sync") }
+                }
+            }
+            .foregroundStyle(whoop.connected ? .primary : Color.accentColor)
+            if let whoopStatus {
+                Text(whoopStatus).font(.subheadline).foregroundStyle(.secondary)
+            }
+            DisclosureGroup("Developer Keys", isExpanded: $showWhoopKeys) {
+                TextField("Client ID", text: $whoopClientID)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                SecureField("Client Secret", text: $whoopSecret)
+                Button("Save Keys") {
+                    WhoopClient.configure(clientID: whoopClientID, secret: whoopSecret)
+                    whoopSecret = ""
+                    whoopStatus = "Keys saved"
+                }
+                .disabled(whoopClientID.isEmpty || whoopSecret.isEmpty)
+            }
+        } header: {
+            Text("Heart Rate")
+        }
+    }
+
+    private var skinsSection: some View {
+        Section {
+            ForEach(owned) { skin in
+                Button { selectedSkin = skin.id } label: {
+                    HStack {
+                        Text(skin.name).foregroundStyle(.primary)
+                        Spacer()
+                        if skin.id == selectedSkin {
+                            Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(.tint)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(skin.id == selectedSkin ? .isSelected : [])
+            }
+        } header: {
+            Text("Skins")
+        } footer: {
+            Text("The score bar on your stream.")
+        }
     }
 
     private func gameRow(_ game: GameRecord) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(game.home.name) vs \(game.away.name)")
-                    .font(.text(17, 600)).foregroundColor(.white).lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(game.home.name) vs \(game.away.name)").lineLimit(1)
                 Text(game.date.formatted(date: .abbreviated, time: .shortened))
-                    .font(.text(14)).foregroundColor(.muted)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             if let t = game.final?.teams, t.count == 2 {
-                Text("\(t[0].score) : \(t[1].score)").font(.wide(18, 900)).foregroundColor(.white)
+                Text("\(t[0].score) : \(t[1].score)")
+                    .font(.body.weight(.semibold))
+                    .monospacedDigit()
             }
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundColor(.muted)
-        }
-        .padding(.vertical, 8)
-    }
-
-    private var profile: some View {
-        HStack(spacing: 16) {
-            Circle()
-                .fill(Color.surface)
-                .overlay(Image(systemName: "person.fill").font(.system(size: 24)).foregroundColor(.muted))
-                .frame(width: 64, height: 64)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("GUEST").font(.wide(34, 900)).foregroundColor(.white)
-                Button("Sign in") {}
-                    .font(.text(15, 650))
-                    .foregroundColor(.pla)
-            }
-            Spacer()
         }
     }
 
-    private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title.uppercased()).font(.wide(26, 900)).foregroundColor(.white).padding(.bottom, 4)
-            content()
+    // MARK: data
+
+    private func reload() {
+        games = GameStore.load()
+        teams = TeamStore.all()
+        #if DEBUG
+        guard !didDebug else { return }
+        didDebug = true
+        switch UserDefaults.standard.string(forKey: "debugTeam") {
+        case "YES": editingTeam = teams.first
+        case "NEW": editingTeam = Team(name: "", color: TeamStore.palette[teams.count % TeamStore.palette.count])
+        default: break
         }
+        if UserDefaults.standard.bool(forKey: "debugGame"), let first = games.first { path = [first.id] }
+        #endif
     }
 
     private func syncWhoop() async {
@@ -215,15 +249,5 @@ struct AccountView: View {
         } catch {
             whoopStatus = error.localizedDescription
         }
-    }
-}
-
-private extension View {
-    /// A settings row: full width, a hairline under it, no box around it.
-    func row() -> some View {
-        self
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(minHeight: 52)
-            .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
     }
 }
