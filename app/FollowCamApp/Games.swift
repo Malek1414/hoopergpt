@@ -87,7 +87,9 @@ struct GameSetupView: View {
             .onAppear { if UserDefaults.standard.bool(forKey: "debugPicker"), path.isEmpty { path = [.home] } }
             #endif
         }
-        .presentationDetents([.medium, .large])
+        // Tall enough for both teams and the button, short enough to feel light.
+        .presentationDetents([.height(540), .large])
+        .presentationBackground(Color(.systemGroupedBackground))
     }
 
     private func teamRow(_ team: Team, side: Side) -> some View {
