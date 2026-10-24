@@ -24,9 +24,9 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/VRlGsFUtw0E"><img alt="Watch the HooperGPT demo on YouTube" src="https://img.youtube.com/vi/VRlGsFUtw0E/hqdefault.jpg" width="480"></a>
+  <a href="https://youtu.be/u5om68ZL-i0"><img alt="Watch the HooperGPT demo on YouTube" src="https://img.youtube.com/vi/u5om68ZL-i0/hqdefault.jpg" width="480"></a>
   <br>
-  <a href="https://youtu.be/VRlGsFUtw0E"><b>Watch the HooperGPT demo on YouTube (DevDay Hackathon Berlin)</b></a>
+  <a href="https://youtu.be/u5om68ZL-i0"><b>Watch the HooperGPT demo on YouTube (full demo, DevDay Hackathon Berlin)</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/Malek1414/hoopergpt/releases/download/devday-berlin-pitch/HooperGPT-pitch.mp4">MP4 download</a>
 </p>
