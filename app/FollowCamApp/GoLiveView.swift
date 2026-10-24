@@ -1,9 +1,8 @@
-import PhotosUI
 import SwiftUI
 
-// Live tab: dress the stream (team logos, a skin for the score bar), then
-// send it to YouTube, Twitch or any RTMP server. Sending is backend work,
-// so the button stays off; the stream key lives in the Keychain only.
+// Live tab: dress the stream (teams, a skin for the score bar), then send
+// it to YouTube, Twitch or any RTMP server. Sending is backend work, so
+// the button stays off; the stream key lives in the Keychain only.
 
 struct GoLiveView: View {
     enum Platform: String, CaseIterable, Identifiable {
@@ -38,61 +37,61 @@ struct GoLiveView: View {
     private var skin: Skin { Skin.find(selectedSkin) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                preview
-                teamsLine
-                skinShelf
+        NavigationStack {
+            List {
+                Section {
+                    StreamPreview(skin: skin, home: home, away: away, radius: 14)
+                        .animation(.spring(duration: 0.35), value: selectedSkin)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                Section("Teams") { teamsRow }
+                Section("Overlay") { skinRow }
                 destination
-                PrimaryButton(title: "Go live", enabled: false) {}
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 32)
+            .listStyle(.insetGrouped)
+            .listSectionSpacing(.compact)
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Go Live")
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                PrimaryButton(title: "Go Live", enabled: false) {}
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
+                    .background(.bar)
+            }
         }
-        .scrollDismissesKeyboard(.interactively)
-        .background(Color.ink.ignoresSafeArea())
+        .tint(.pla)
         .sheet(item: $buying) { skin in
-            BuySheet(skin: skin) {
+            BuySheet(skin: skin, home: home, away: away) {
                 own(skin)
                 buying = nil
-            }
-        }
-    }
-
-    // MARK: preview: what viewers will see
-
-    private var preview: some View {
-        CourtLines()
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .overlay(alignment: .top) {
-                ScoreBar(skin: skin, home: home.name.uppercased(), away: away.name.uppercased(),
-                         homeColor: Color(hex: home.color) ?? .white, awayColor: Color(hex: away.color) ?? .muted,
-                         homeLogo: TeamStore.logo(home.id), awayLogo: TeamStore.logo(away.id))
-                    .padding(.top, 12)
-                    .id(skin.id)
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .animation(.spring(duration: 0.35), value: selectedSkin)
-    }
-
-    // MARK: teams: named in the game setup, edited there too
-
-    private var teamsLine: some View {
-        Button { editingTeams = true } label: {
-            HStack(spacing: 12) {
-                TeamBadge(team: home, size: 36)
-                TeamBadge(team: away, size: 36)
-                    .padding(.leading, -20)
-                Text("\(home.name) vs \(away.name)")
-                    .font(.text(17, 600)).foregroundColor(.white).lineLimit(1)
-                Spacer()
-                Text("Edit").font(.text(15, 650)).foregroundColor(.pla)
+            } close: {
+                buying = nil
             }
         }
         .sheet(isPresented: $editingTeams, onDismiss: reloadTeams) {
             GameSetupView(actionTitle: "Save", start: { editingTeams = false }, cancel: { editingTeams = false })
+        }
+    }
+
+    // MARK: teams: named in the game setup, edited there too
+
+    private var teamsRow: some View {
+        Button { editingTeams = true } label: {
+            HStack(spacing: 12) {
+                HStack(spacing: -8) {
+                    TeamBadge(team: home, size: 30)
+                    TeamBadge(team: away, size: 30)
+                }
+                Text("\(home.name) vs \(away.name)")
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
@@ -103,21 +102,19 @@ struct GoLiveView: View {
 
     // MARK: skins
 
-    private var skinShelf: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Skins").font(.wide(20, 850)).foregroundColor(.white)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(Skin.all) { s in
-                        SkinCard(skin: s, owned: owns(s), selected: s.id == selectedSkin) {
-                            if owns(s) { selectedSkin = s.id } else { buying = s }
-                        }
+    private var skinRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(Skin.all) { s in
+                    SkinCard(skin: s, home: home, away: away, owned: owns(s), selected: s.id == selectedSkin) {
+                        if owns(s) { selectedSkin = s.id } else { buying = s }
                     }
                 }
-                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, -20)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
+        .listRowInsets(EdgeInsets())
     }
 
     private func owns(_ s: Skin) -> Bool {
@@ -132,114 +129,157 @@ struct GoLiveView: View {
     // MARK: where it goes
 
     private var destination: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Stream to").font(.wide(20, 850)).foregroundColor(.white)
-            HStack(spacing: 8) {
-                ForEach(Platform.allCases) { p in
-                    Button {
-                        platform = p
-                        server = p.defaultServer
-                    } label: {
-                        Text(p.rawValue)
-                            .font(.text(15, platform == p ? 700 : 550))
-                            .foregroundColor(platform == p ? .black : .white)
-                            .padding(.horizontal, 16).frame(height: 40)
-                            .background(platform == p ? Color.white : Color.surface)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(PressScale())
+        Section {
+            Picker("Platform", selection: $platform) {
+                ForEach(Platform.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+            .onChange(of: platform) { server = platform.defaultServer }
+
+            LabeledContent("Server") {
+                if platform == .custom {
+                    TextField("rtmp://", text: $server)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .multilineTextAlignment(.trailing)
+                } else {
+                    // Fixed for YouTube and Twitch: shown, not editable.
+                    Text(server.replacingOccurrences(of: "rtmp://", with: ""))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
             }
-            VStack(spacing: 0) {
-                Group {
-                    if platform == .custom {
-                        TextField("rtmp://", text: $server)
-                            .keyboardType(.URL)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                    } else {
-                        // Fixed for YouTube and Twitch: shown, not editable.
-                        Text(server).foregroundColor(.muted).lineLimit(1)
-                    }
-                }
-                .field()
-                HStack {
-                    SecureField(keySaved ? "Stream key saved" : "Stream key from \(platform.rawValue)", text: $key)
+
+            LabeledContent("Stream Key") {
+                HStack(spacing: 12) {
+                    SecureField(keySaved ? "Saved" : "Required", text: $key)
+                        .multilineTextAlignment(.trailing)
+                        .onSubmit(saveKey)
                     if !key.isEmpty {
-                        Button("Save") {
-                            Keychain.set(key, for: KeychainKey.rtmpStreamKey)
-                            key = ""
-                            keySaved = true
-                        }
-                        .font(.text(15, 700))
-                        .foregroundColor(.pla)
+                        Button("Save", action: saveKey)
+                            .fontWeight(.semibold)
+                            .buttonStyle(.borderless)
                     }
                 }
-                .field()
             }
+        } header: {
+            Text("Destination")
+        } footer: {
+            Text("Streaming arrives with the next update.")
         }
     }
-}
 
-private extension View {
-    func field() -> some View {
-        self
-            .font(.text(16, 550))
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-            .overlay(alignment: .bottom) { Rectangle().fill(Color.hairline).frame(height: 1) }
+    private func saveKey() {
+        guard !key.isEmpty else { return }
+        Keychain.set(key, for: KeychainKey.rtmpStreamKey)
+        key = ""
+        keySaved = true
     }
 }
 
 // MARK: - pieces
 
+/// What viewers will see: the court with the score bar on top.
+private struct StreamPreview: View {
+    let skin: Skin
+    let home: Team
+    let away: Team
+    var radius: CGFloat = 12
+    var scale: CGFloat = 0.92
+
+    var body: some View {
+        CourtLines()
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .overlay(alignment: .top) {
+                ScoreBar(skin: skin, home: home.name.uppercased(), away: away.name.uppercased(),
+                         homeColor: Color(hex: home.color) ?? .white, awayColor: Color(hex: away.color) ?? .muted,
+                         homeLogo: TeamStore.logo(home.id), awayLogo: TeamStore.logo(away.id),
+                         scale: scale)
+                    .padding(.top, 12 * scale)
+                    .id(skin.id)
+                    .transition(.opacity)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .stroke(Color.white.opacity(0.08)))
+    }
+}
+
 private struct SkinCard: View {
     let skin: Skin
+    let home: Team
+    let away: Team
     let owned: Bool
     let selected: Bool
     let tap: () -> Void
 
     var body: some View {
         Button(action: tap) {
-            VStack(alignment: .leading, spacing: 10) {
-                CourtLines()
-                    .frame(width: 170, height: 96)
-                    .overlay {
-                        ScoreBar(skin: skin, home: TeamStore.home.name.uppercased(),
-                                 away: TeamStore.away.name.uppercased(), scale: 0.62)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(selected ? Color.white : Color.clear, lineWidth: 2))
-                HStack {
-                    Text(skin.name).font(.text(15, 650)).foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 8) {
+                StreamPreview(skin: skin, home: home, away: away, radius: 10, scale: 0.44)
+                    .frame(width: 156)
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(selected ? Color.pla : Color.clear, lineWidth: 2.5))
+                HStack(spacing: 4) {
+                    Text(skin.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                     Spacer()
-                    Text(owned ? (selected ? "On" : "Owned") : skin.price ?? "")
-                        .font(.text(14, 650))
-                        .foregroundColor(owned ? .muted : .pla)
+                    if selected {
+                        Image(systemName: "checkmark")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.tint)
+                    } else {
+                        Text(owned ? "Owned" : skin.price ?? "")
+                            .font(.subheadline)
+                            .foregroundStyle(owned ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+                    }
                 }
-                .frame(width: 170)
+                .frame(width: 156)
             }
         }
-        .buttonStyle(PressScale())
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
 /// Purchase step. Simulated: unlocks on the phone until StoreKit is wired.
 private struct BuySheet: View {
     let skin: Skin
+    let home: Team
+    let away: Team
     let buy: () -> Void
+    let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            CourtLines()
-                .aspectRatio(16 / 9, contentMode: .fit)
-                .overlay(alignment: .top) { ScoreBar(skin: skin).padding(.top, 12) }
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            Text(skin.name).font(.wide(30, 900)).foregroundColor(.white)
-            PrimaryButton(title: "Buy for \(skin.price ?? "")", action: buy)
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                StreamPreview(skin: skin, home: home, away: away, radius: 14)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(skin.name).font(.title.bold())
+                    Text("Score bar for your stream. One-time purchase.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                PrimaryButton(title: "Buy for \(skin.price ?? "")", action: buy)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", action: close)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(24)
-        .presentationDetents([.height(470), .large])
-        .presentationBackground(Color.surface)
+        .tint(.pla)
+        .presentationDetents([.height(460)])
+        .presentationDragIndicator(.hidden)
     }
 }
