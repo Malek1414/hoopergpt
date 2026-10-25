@@ -24,11 +24,11 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/u5om68ZL-i0"><img alt="Watch the HooperGPT demo on YouTube" src="https://img.youtube.com/vi/u5om68ZL-i0/hqdefault.jpg" width="480"></a>
+  <a href="https://youtu.be/iPMFK3SKGdQ"><img alt="Watch the HooperGPT demo on YouTube" src="https://img.youtube.com/vi/iPMFK3SKGdQ/hqdefault.jpg" width="480"></a>
   <br>
-  <a href="https://youtu.be/u5om68ZL-i0"><b>Watch the HooperGPT demo on YouTube (full demo, DevDay Hackathon Berlin)</b></a>
+  <a href="https://youtu.be/iPMFK3SKGdQ"><b>Watch the HooperGPT demo on YouTube (full demo, DevDay Hackathon Berlin)</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/Malek1414/hoopergpt/releases/download/devday-berlin-pitch/HooperGPT-pitch.mp4">MP4 download</a>
+  <a href="https://github.com/Malek1414/hoopergpt/releases/download/devday-berlin-pitch/HooperGPT-demo.mp4">MP4 download</a>
 </p>
 
 **A 3D-printed pan pod that turns the tripod you already own into an auto-tracking sports camera.**
