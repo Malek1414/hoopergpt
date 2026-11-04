@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HooperGPT · The box score from one phone</title>
+<meta name="description" content="HooperGPT films a basketball game on the phone you already own. It follows the ball, tracks every player, keeps the score and streams it live.">
+<meta name="theme-color" content="#0B0D12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230B0D12%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22none%22 stroke=%22%23F0761E%22 stroke-width=%223%22/%3E%3C/svg%3E">
+
+<meta property="og:title" content="HooperGPT · The box score from one phone">
+<meta property="og:description" content="Auto-filmed games, player stats and live streams from a phone. Built in Berlin.">
+<meta property="og:image" content="media/clean-vs-boxes.jpg">
+<style>
+  :root {
+    --bg: #0B0D12; --panel: #12151C; --raised: #181C25; --line: #232936;
+    --text: #EEF0F4; --muted: #A3AABB; --faint: #7C8598;
+    --accent: #F0761E; --accent-deep: #9A4A12; --accent-wash: rgba(240,118,30,.08);
+    --sans: -apple-system, "SF Pro Display", Inter, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    --r-in: 12px; --r-out: 20px; --r-pill: 999px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --gutter: 24px; --max: 1200px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 18px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; overflow-x: hidden; }
+  img, video { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+  .mono { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .k { color: var(--accent); margin-bottom: 16px; }
+  h1 { font-size: clamp(44px, 7vw, 88px); font-weight: 600; letter-spacing: -.03em; line-height: 1.02; }
+  h2 { font-size: clamp(32px, 4.4vw, 52px); font-weight: 600; letter-spacing: -.02em; line-height: 1.1; max-width: 900px; }
+  .lead { font-size: clamp(18px, 2vw, 22px); color: var(--muted); max-width: 620px; }
+  .muted { color: var(--muted); }
+  .faint { color: var(--faint); }
+  section { padding: 96px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-out); padding: 32px;
+    transition: border-color .3s var(--ease); }
+  .card:hover { border-color: #3a3024; }
+  .grid { display: grid; gap: 16px; }
+  @media (min-width: 760px) { .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3,1fr); } .g4 { grid-template-columns: repeat(4,1fr); } }
+  @media (min-width: 560px) and (max-width: 759px) { .g4 { grid-template-columns: 1fr 1fr; } }
+
+  /* header */
+  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); border-bottom: 1px solid transparent; transition: border-color .3s var(--ease); }
+  header.scrolled { border-bottom-color: var(--line); }
+  .nav { display: flex; align-items: center; height: 64px; gap: 32px; }
+  .logo { font-family: var(--mono); font-weight: 600; letter-spacing: .06em; font-size: 15px; }
+  .nav ul { display: none; list-style: none; gap: 24px; margin-left: auto; }
+  .nav ul a { color: var(--muted); font-size: 15px; transition: color .18s var(--ease); }
+  .nav ul a:hover, .nav ul a:focus-visible { color: var(--text); }
+  @media (min-width: 860px) { .nav ul { display: flex; } }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: var(--r-pill);
+    font-size: 16px; font-weight: 600; border: 1px solid var(--line); transition: transform .18s var(--ease), background .18s var(--ease), border-color .18s var(--ease); }
+  .btn:hover, .btn:focus-visible { transform: translateY(-2px); border-color: var(--accent-deep); background: var(--accent-wash); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #140a03; }
+  .btn.primary:hover, .btn.primary:focus-visible { background: #ff8a36; border-color: #ff8a36; }
+  .btn .arr { transition: transform .18s var(--ease); }
+  .btn:hover .arr, .btn:focus-visible .arr { transform: translateX(4px); }
+  .nav .btn { height: 40px; padding: 0 18px; font-size: 15px; margin-left: auto; }
+  @media (min-width: 860px) { .nav .btn { margin-left: 0; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+  /* hero */
+  .hero { padding: 72px 0 64px; }
+  .hero .wrap { display: grid; gap: 48px; align-items: center; }
+  @media (min-width: 960px) { .hero .wrap { grid-template-columns: 1.05fr .95fr; } }
+  .hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .hero .meta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--faint); }
+  .hero-media { position: relative; border-radius: var(--r-out); overflow: hidden; border: 1px solid var(--line); aspect-ratio: 4 / 5; background: var(--panel);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.6); }
+  .hero-media video, .hero-media img { width: 100%; height: 100%; object-fit: cover; }
+  .hero-media .tag { position: absolute; left: 16px; bottom: 16px; padding: 8px 14px; border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--line); color: var(--muted); }
+
+  /* how */
+  .step .n { color: var(--accent); }
+  .step h3 { font-size: 22px; font-weight: 600; margin: 12px 0 8px; }
+  .wide-media { border-radius: var(--r-out); overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
+  .wide-media img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+
+  /* proof */
+  .stat .v { font-size: clamp(48px, 6vw, 64px); font-weight: 600; letter-spacing: -.03em; line-height: 1; margin: 16px 0 8px; }
+  .stat .v small { font-size: .5em; font-weight: 600; }
+  .weak { margin-top: 16px; }
+  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; padding: 18px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .row .how { grid-column: 1 / -1; color: var(--muted); font-size: 16px; }
+  @media (min-width: 760px) { .row { grid-template-columns: 220px 90px 90px 1fr; } .row .how { grid-column: auto; } }
+
+  /* who */
+  .who .card { display: flex; flex-direction: column; min-height: 280px; }
+  .who h3 { font-size: 24px; font-weight: 600; margin: 12px 0 8px; }
+  .who p { color: var(--muted); }
+  .who .lead-card { border-color: var(--accent-deep); }
+
+  /* pricing */
+  .price .v { font-size: 52px; font-weight: 600; letter-spacing: -.03em; margin-top: 16px; line-height: 1; }
+  .price ul { list-style: none; margin-top: 24px; display: grid; gap: 10px; color: var(--muted); font-size: 16px; }
+  .price li::before { content: "—"; color: var(--accent); margin-right: 10px; }
+  .price .card { display: flex; flex-direction: column; }
+  .price .btn { margin-top: auto; align-self: flex-start; }
+  .price .spacer { height: 32px; }
+  .price .featured { border-color: var(--accent-deep); }
+
+  /* compare */
+  .table { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r-out); }
+  table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 16px; }
+  th, td { text-align: left; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 400; background: var(--panel); }
+  td { color: var(--muted); }
+  td:first-child { color: var(--text); }
+  tr.us td { background: var(--accent-wash); color: var(--text); }
+  tr.us td:first-child { box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+
+  /* faq */
+  details { border-top: 1px solid var(--line); padding: 20px 0; }
+  details:last-child { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; list-style: none; font-size: 20px; font-weight: 600; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--accent); font-weight: 400; transition: transform .25s var(--ease); }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p { color: var(--muted); margin-top: 12px; max-width: 760px; }
+
+  /* investors */
+  .inv { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-out); padding: clamp(32px, 5vw, 64px); display: grid; gap: 32px; }
+  @media (min-width: 900px) { .inv { grid-template-columns: 1.2fr 1fr; align-items: end; } }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .kv .v { font-size: clamp(24px, 6vw, 32px); font-weight: 600; letter-spacing: -.02em; }
+  .kv .mono { white-space: nowrap; }
+
+  footer { padding: 48px 0 64px; border-top: 1px solid var(--line); color: var(--faint); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: baseline; }
+
+  /* reveal */
+  .rv { opacity: 0; transform: translateY(8px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+  .rv.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .rv { opacity: 1; transform: none; transition: none; }
+    .btn, .btn .arr, .card, summary::after { transition: color .18s, background .18s, border-color .18s; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="mono" style="position:absolute;left:-9999px;top:8px;" onfocus="this.style.left='8px'" onblur="this.style.left='-9999px'">Skip to content</a>
+
+<header id="top">
+  <div class="wrap nav">
+    <a href="#top" class="logo" aria-label="HooperGPT home">HOOPERGPT</a>
+    <nav aria-label="Main"><ul>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#proof">Results</a></li>
+      <li><a href="#who">Who it's for</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#investors">Investors</a></li>
+    </ul></nav>
+    <a class="btn primary" href="#pilot">Run a pilot</a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <div class="mono k">Basketball · Built in Berlin</div>
+        <h1>The box score from one phone.</h1>
+        <p class="lead" style="margin-top:24px;">HooperGPT films your game on the phone you already own. It follows the ball, tracks every player, keeps the score and streams it live, so the people who can't be there still see you play.</p>
+        <div class="ctas">
+          <a class="btn primary" href="#pilot">Run a free pilot <span class="arr" aria-hidden="true">→</span></a>
+          <a class="btn" href="#how">See how it works</a>
+        </div>
+        <div class="meta mono"><span>No camera to buy</span><span>Model runs on the phone</span><span>Live to YouTube</span></div>
+      </div>
+      <div class="hero-media">
+        <video id="heroVid" muted loop playsinline preload="none" poster="media/live-boxes.jpg" aria-label="HooperGPT tracking every player in a real game">
+          <source src="media/live-boxes.mp4" type="video/mp4">
+        </video>
+        <span class="tag mono">Real game · every player tracked</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="how">
+    <div class="wrap">
+      <div class="mono k rv">How it works</div>
+      <h2 class="rv">Set the phone down. Play your game.</h2>
+      <div class="grid g4" style="margin-top:48px;">
+        <div class="card step rv"><span class="mono n">01 · Follow</span><h3>It follows the ball</h3><p class="muted">From any tripod. An optional €20 pod adds a motor that pans with the play.</p></div>
+        <div class="card step rv"><span class="mono n">02 · Track</span><h3>It knows every player</h3><p class="muted">A box on every player, jersey numbers read, positions mapped to the court.</p></div>
+        <div class="card step rv"><span class="mono n">03 · Score</span><h3>It keeps the score</h3><p class="muted">Shots are called and box scores fill in as you play. Any call can be fixed with one tap.</p></div>
+        <div class="card step rv"><span class="mono n">04 · Stream</span><h3>It goes live</h3><p class="muted">A clean picture with a score overlay on YouTube, for family anywhere in the world.</p></div>
+      </div>
+      <div class="grid g2" style="margin-top:16px;">
+        <div class="wide-media rv"><img src="media/clean-vs-boxes.jpg" alt="The same shot twice: the clean picture viewers see, and the tracked view with the player boxed" loading="lazy" width="1320" height="1080"></div>
+        <div class="wide-media rv"><img src="media/box-score.jpg" alt="Shot chart and per-player box score built automatically from a game" loading="lazy" width="1600" height="900"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section id="proof">
+    <div class="wrap">
+      <div class="mono k rv">Results</div>
+      <h2 class="rv">Measured on real games, then checked by hand.</h2>
+      <p class="lead rv" style="margin-top:16px;">We publish where it's weak, and we work on it in public.</p>
+      <div class="grid g4" style="margin-top:48px;">
+        <div class="card stat rv"><span class="mono faint">Shot attempts</span><div class="v">96<small>%</small></div><p class="muted">22 of 23 calls were real shots</p></div>
+        <div class="card stat rv"><span class="mono faint">On-device detector</span><div class="v">91.4<small>%</small></div><p class="muted">mAP50 · ball precision 90.4%</p></div>
+        <div class="card stat rv"><span class="mono faint">Court mapping</span><div class="v">92.7<small>%</small></div><p class="muted">of frames placed on the 2D court</p></div>
+        <div class="card stat rv"><span class="mono faint">Live overlay</span><div class="v">14<small> fps</small></div><p class="muted">with the score called automatically</p></div>
+      </div>
+      <div class="weak rv">
+        <div class="row mono faint" style="border-top:0;"><span>Still improving</span><span>Today</span><span>Target</span><span class="how" style="font-size:13px;">How</span></div>
+        <div class="row"><span>Make / miss</span><span>73%</span><span style="color:var(--accent)">90%</span><span class="how">A rim depth check stops rim-outs being called makes, and you can fix any call with one tap</span></div>
+        <div class="row"><span>Who took the shot</span><span>40%</span><span style="color:var(--accent)">80%</span><span class="how">Shooting pose plus the jersey number at the release</span></div>
+        <div class="row"><span>Stream frame rate</span><span>14 fps</span><span style="color:var(--accent)">30 fps</span><span class="how">The video records at 30 fps and the model runs alongside it</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO -->
+  <section id="who" class="who">
+    <div class="wrap">
+      <div class="mono k rv">Who it's for</div>
+      <h2 class="rv">Any team, any league.</h2>
+      <div class="grid g3" style="margin-top:48px;">
+        <div class="card lead-card rv"><span class="mono" style="color:var(--accent)">Teams &amp; leagues</span><h3>Every game, on the record</h3><p>Adult amateur leagues, 3x3 and youth clubs get video and a real box score for every game, without a camera crew.</p></div>
+        <div class="card rv"><span class="mono faint">Players</span><h3>Your stats, your film</h3><p>Season stats and highlights that follow you from team to team. They're ready when a coach or college asks for them.</p></div>
+        <div class="card rv"><span class="mono faint">Family &amp; friends</span><h3>Watch from anywhere</h3><p>A live stream with the score, for the people who can't be in the gym. That's why we built it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pricing" class="price">
+    <div class="wrap">
+      <div class="mono k rv">Pricing</div>
+      <h2 class="rv">The phone is free. The intelligence is the product.</h2>
+      <div class="grid g3" style="margin-top:48px;">
+        <div class="card rv"><span class="mono faint">Player / family</span><div class="v">€12.99</div><span class="faint">per month</span>
+          <ul><li>Personal stats and highlights</li><li>Shareable player card</li><li>Watch every game live</li></ul><div class="spacer"></div><a class="btn" href="#pilot">Join the pilot</a></div>
+        <div class="card featured rv"><span class="mono" style="color:var(--accent)">Team</span><div class="v">€39.99</div><span class="faint">per team per month</span>
+          <ul><li>Box score for every game</li><li>Live stream with score overlay</li><li>Private team archive and scouting clips</li></ul><div class="spacer"></div><a class="btn primary" href="#pilot">Start a free pilot</a></div>
+        <div class="card rv"><span class="mono faint">League / federation</span><div class="v">€349</div><span class="faint">per programme per month</span>
+          <ul><li>Every league game counted</li><li>Consent workflow (GDPR) built in</li><li>Results and stats export</li></ul><div class="spacer"></div><a class="btn" href="#pilot">Talk to us</a></div>
+      </div>
+      <p class="faint" style="margin-top:16px; font-size:15px;">Pilot pricing, for teams joining in 2026. Prices include VAT for players and families.</p>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="compare">
+    <div class="wrap">
+      <div class="mono k rv">Compared</div>
+      <h2 class="rv">Others sell a camera or a spreadsheet. We give you the box score.</h2>
+      <div class="table rv" style="margin-top:48px;" tabindex="0" role="region" aria-label="Comparison table">
+        <table>
+          <thead><tr><th>Product</th><th>Cost</th><th>Follows the ball</th><th>Automatic box score</th><th>Hardware</th></tr></thead>
+          <tbody>
+            <tr><td>Veo / Pixellot</td><td>~$2,400–2,900 / yr + camera</td><td>Yes</td><td>No</td><td>Dedicated camera</td></tr>
+            <tr><td>GameChanger</td><td>$100–180 / yr</td><td>No</td><td>Typed by hand</td><td>None</td></tr>
+            <tr><td>HomeCourt+</td><td>$69.99 / yr</td><td>No</td><td>Drills only</td><td>None</td></tr>
+            <tr><td>Pivo</td><td>$160–250 + $24.99 / mo</td><td>Yes</td><td>No</td><td>Gimbal</td></tr>
+            <tr class="us"><td>HooperGPT</td><td>From €12.99 / mo</td><td>Yes</td><td>Yes</td><td>Your phone · pod optional</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="faint" style="margin-top:16px; font-size:15px;">Competitor prices from public pricing pages, November 2026. The Veo figure is an estimate.</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="wrap">
+      <div class="mono k rv">Questions</div>
+      <h2 class="rv" style="margin-bottom:40px;">Good to know</h2>
+      <details class="rv"><summary>Do I need the pod?</summary><p>No. HooperGPT works from any tripod or a fixed spot at the side of the court. The pod is an optional 3D-printed head with a small motor that turns the phone to follow the play.</p></details>
+      <details class="rv"><summary>Where does the video go?</summary><p>The model runs on the phone. Games stay in a private team archive, and they're only streamed when the team chooses to go live.</p></details>
+      <details class="rv"><summary>What about filming minors?</summary><p>Youth games need consent from a parent or guardian under GDPR. HooperGPT includes a consent roster, and we start with adult leagues and teams that opt in.</p></details>
+      <details class="rv"><summary>How accurate is it?</summary><p>We publish our numbers above, including the weak ones. Every automatic call can be corrected with one tap, and corrections make the model better.</p></details>
+    </div>
+  </section>
+
+  <!-- INVESTORS -->
+  <section id="investors">
+    <div class="wrap">
+      <div class="inv rv">
+        <div>
+          <div class="mono k">Investors</div>
+          <h2>Every amateur game, counted.</h2>
+          <p class="lead" style="margin-top:16px;">Each game we film becomes structured data. Each season becomes a player's record. We are raising a pre-seed round to reach our first 60+ paying teams.</p>
+          <div class="ctas" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:32px;">
+            <a class="btn primary" href="HooperGPT_Investor_Deck.pdf">Read the deck <span class="arr" aria-hidden="true">→</span></a>
+            <a class="btn" href="mailto:malek.hassan@code.berlin?subject=HooperGPT%20investor%20intro">Get in touch</a>
+          </div>
+        </div>
+        <div class="kv">
+          <div><div class="mono faint">Raising</div><div class="v">€100k</div></div>
+          <div><div class="mono faint">Instrument</div><div class="v">Convertible</div></div>
+          <div><div class="mono faint">In 12 months</div><div class="v">60+ teams</div></div>
+          <div><div class="mono faint">ARR goal</div><div class="v">€50k</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PILOT CTA -->
+  <section id="pilot" style="padding-top:0;">
+    <div class="wrap" style="text-align:center;">
+      <h2 class="rv" style="margin:0 auto;">Run a free 4-week pilot with your team.</h2>
+      <p class="lead rv" style="margin:16px auto 0;">We set it up at your next home game, and you keep the box scores either way.</p>
+      <div class="rv" style="margin-top:32px;"><a class="btn primary" href="mailto:malek.hassan@code.berlin?subject=HooperGPT%20pilot&amp;body=Team%3A%0ALeague%3A%0ANext%20home%20game%3A">Book a pilot <span class="arr" aria-hidden="true">→</span></a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="logo">HOOPERGPT</span>
+    <span>Built at CODE University of Applied Sciences, Berlin</span>
+    <a href="#top" style="margin-left:auto;">Back to top ↑</a>
+  </div>
+</footer>
+
+<script>
+  // Header hairline once scrolled
+  const hdr = document.querySelector('header');
+  const onScroll = () => hdr.classList.toggle('scrolled', window.scrollY > 8);
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Reveal once, never re-trigger
+  const els = document.querySelectorAll('.rv');
+  if (reduce || !('IntersectionObserver' in window)) els.forEach(e => e.classList.add('in'));
+  else {
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.15 });
+    els.forEach(e => io.observe(e));
+  }
+
+  // Hero video: play only when visible and motion is allowed; the poster stays otherwise
+  const v = document.getElementById('heroVid');
+  if (!reduce && v) {
+    v.preload = 'auto';
+    const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.25 });
+    vio.observe(v);
+  }
+</script>
+</body>
+</html>
