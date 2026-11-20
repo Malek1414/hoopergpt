@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230B0D12%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22none%22 stroke=%22%23F0761E%22 stroke-width=%223%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2309090A%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22none%22 stroke=%22%23EB6414%22 stroke-width=%223%22/%3E%3C/svg%3E">
 
 <meta property="og:title" content="HooperGPT · The box score from one phone">
 <meta property="og:description" content="Auto-filmed games, player stats and live streams from a phone. Built in Berlin.">
@@ -182,6 +182,69 @@
   .rv.in { transform: none; }
   @media (prefers-reduced-motion: reduce) { .rv { transform: none; } .tilt, .tilt > * { transform: none !important; } }
 
+  /* ---- UX + responsiveness ----------------------------------------------------------------------- */
+  html { scroll-padding-top: 80px; }
+  h1, h2 { text-wrap: balance; }
+  p, li, blockquote { text-wrap: pretty; }
+  .nav ul a[aria-current="true"] { color: var(--text); }
+  .nav ul a { position: relative; }
+  .nav ul a[aria-current="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 2px; border-radius: 2px; background: var(--accent); }
+  .menu-btn { display: none; width: 44px; height: 44px; margin-left: 4px; border: 1px solid var(--line); border-radius: 12px;
+    background: transparent; color: var(--text); cursor: pointer; position: relative; }
+  .menu-btn span { position: absolute; left: 13px; right: 13px; height: 2px; border-radius: 2px; background: currentColor; transition: transform .3s var(--ease), top .3s var(--ease); }
+  .menu-btn span:first-child { top: 17px; } .menu-btn span:last-child { top: 25px; }
+  .menu-btn[aria-expanded="true"] span:first-child { top: 21px; transform: rotate(45deg); }
+  .menu-btn[aria-expanded="true"] span:last-child { top: 21px; transform: rotate(-45deg); }
+  .menu { display: grid; gap: 4px; padding: 8px var(--gutter) 20px; border-top: 1px solid var(--line); }
+  .menu[hidden] { display: none; }
+  .menu a:not(.btn) { padding: 14px 0; font-size: 20px; font-weight: 600; font-stretch: 110%; border-bottom: 1px solid var(--line); }
+  .menu .btn { margin-top: 16px; justify-content: center; }
+  @media (max-width: 859px) { .menu-btn { display: block; } }
+  @media (min-width: 860px) { .menu { display: none !important; } }
+  .vid-toggle { position: absolute; right: 16px; bottom: 16px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+  .vid-toggle svg { width: 14px; height: 14px; fill: currentColor; }
+  .vid-toggle .i-play { display: none; }
+  .vid-toggle[aria-pressed="true"] .i-play { display: inline; } .vid-toggle[aria-pressed="true"] .i-pause { display: none; }
+  .hero-media.tilt .vid-toggle { transform: translateZ(40px); }
+  .swipe { display: none; margin-top: 32px; margin-bottom: -32px; font-size: 12px; }
+  #pilot .btn + .btn { margin-left: 8px; }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-left: auto; }
+  .foot-links a:hover, .foot-links a:focus-visible { color: var(--text); }
+  /* hover effects only where there is a pointer that hovers */
+  @media (hover: none) {
+    .btn:hover { transform: none; }
+    .btn:hover .arr { transform: none; }
+  }
+  /* phones */
+  @media (max-width: 759px) {
+    body { font-size: 17px; }
+    section { padding: 64px 0; }
+    .hero { padding: 40px 0 48px; }
+    .hero .wrap { gap: 32px; }
+    .hero .ctas .btn { flex: 1 1 auto; justify-content: center; }
+    .nav { gap: 12px; }
+    .nav .nav-cta { height: 40px; padding: 0 14px; font-size: 14px; }
+    .card { padding: 24px; }
+    .who .card { min-height: 0; }
+    .grid[style*="margin-top:48px"], .table[style*="margin-top:48px"] { margin-top: 32px !important; }
+    .swipe { display: block; }
+    /* keep the product column visible while the table scrolls sideways */
+    th:first-child, td:first-child { position: sticky; left: 0; z-index: 1; background: #121214; box-shadow: 1px 0 0 var(--line); }
+    tr.us td:first-child { background: #1d1612; }
+    .stat .v { font-size: 48px; }
+    .price .v { font-size: 44px; }
+    .inv { padding: 28px 24px; }
+    .note { padding: 8px 0 32px; }
+    #pilot .btn { width: 100%; justify-content: center; margin: 8px 0 0 !important; }
+    footer .wrap { flex-direction: column; align-items: flex-start; }
+    .foot-links { margin-left: 0; }
+  }
+  @media (max-width: 380px) { .nav .nav-cta { display: none; } }
+  @media (max-width: 959px) { .hero-media { width: 100%; max-width: 480px; } }
+
+
   /* ---- Human touches ---------------------------------------------------------------------------- */
   .note { padding: 24px 0 48px; }
   .note figure { max-width: 860px; }
@@ -210,10 +273,21 @@
       <li><a href="#proof">Results</a></li>
       <li><a href="#who">Who it's for</a></li>
       <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#team">Team</a></li>
       <li><a href="#investors">Investors</a></li>
     </ul></nav>
-    <a class="btn primary" href="#pilot">Run a pilot</a>
+    <a class="btn primary nav-cta" href="#pilot">Run a pilot</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><span></span><span></span></button>
   </div>
+  <nav id="menu" class="menu" aria-label="Main, mobile" hidden>
+    <a href="#how">How it works</a>
+    <a href="#proof">Results</a>
+    <a href="#who">Who it's for</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#team">Team</a>
+    <a href="#investors">Investors</a>
+    <a class="btn primary" href="#pilot">Run a free pilot <span class="arr" aria-hidden="true">→</span></a>
+  </nav>
 </header>
 
 <main id="main">
@@ -235,6 +309,7 @@
           <source src="media/hero-shots.mp4" type="video/mp4">
         </video>
         <span class="tag mono">The founder · tracked by HooperGPT</span>
+        <button class="vid-toggle" type="button" aria-label="Pause video" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="i-pause" d="M4 3h3v10H4zM9 3h3v10H9z"/><path class="i-play" d="M5 3l8 5-8 5z"/></svg></button>
       </div>
     </div>
   </section>
@@ -323,6 +398,7 @@
     <div class="wrap">
       <div class="mono k rv">Compared</div>
       <h2 class="rv">Others sell a camera or a spreadsheet. We give you the box score.</h2>
+      <p class="swipe mono faint rv" aria-hidden="true">Swipe to compare →</p>
       <div class="table rv" style="margin-top:48px;" tabindex="0" role="region" aria-label="Comparison table">
         <table>
           <thead><tr><th>Product</th><th>Cost</th><th>Follows the ball</th><th>Automatic box score</th><th>Hardware</th></tr></thead>
@@ -389,9 +465,9 @@
   <!-- PILOT CTA -->
   <section id="pilot" style="padding-top:0;">
     <div class="wrap" style="text-align:center;">
-      <h2 class="rv" style="margin:0 auto;">Run a free 4-week pilot with your team.</h2>
+      <h2 class="rv" style="margin:0 auto;">Run a free 4&#8209;week pilot with your team.</h2>
       <p class="lead rv" style="margin:16px auto 0;">We set it up at your next home game, and you keep the box scores either way.</p>
-      <div class="rv" style="margin-top:32px;"><a class="btn primary" href="mailto:malek.hassan@code.berlin?subject=HooperGPT%20pilot&amp;body=Team%3A%0ALeague%3A%0ANext%20home%20game%3A">Book a pilot <span class="arr" aria-hidden="true">→</span></a></div>
+      <div class="rv" style="margin-top:32px;"><a class="btn primary" href="mailto:malek.hassan@code.berlin?subject=HooperGPT%20pilot&amp;body=Team%3A%0ALeague%3A%0ANext%20home%20game%3A">Book a pilot <span class="arr" aria-hidden="true">→</span></a> <a class="btn" href="#pricing">See pricing</a></div>
     </div>
   </section>
 </main>
@@ -400,7 +476,7 @@
   <div class="wrap">
     <span class="logo">HOOPERGPT</span>
     <span>Built at CODE University of Applied Sciences, Berlin</span>
-    <a href="#top" style="margin-left:auto;">Back to top ↑</a>
+    <span class="foot-links"><a href="mailto:malek.hassan@code.berlin?subject=HooperGPT%20pilot&amp;body=Team%3A%0ALeague%3A%0ANext%20home%20game%3A">Book a pilot</a><a href="HooperGPT_Investor_Deck.pdf">Investor deck (PDF)</a><a href="#top">Back to top ↑</a></span>
   </div>
 </footer>
 
@@ -424,8 +500,39 @@
   const v = document.getElementById('heroVid');
   if (!reduce && v) {
     v.preload = 'auto';
-    const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.25 });
+    const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? (userPaused || v.play().catch(() => {})) : v.pause()), { threshold: 0.25 });
     vio.observe(v);
+  }
+
+
+  // ---- Mobile menu --------------------------------------------------------------------------------
+  const mb = document.querySelector('.menu-btn'), menu = document.getElementById('menu');
+  const setMenu = open => { mb.setAttribute('aria-expanded', open); mb.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); menu.hidden = !open; };
+  mb.addEventListener('click', () => setMenu(menu.hidden));
+  menu.addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { setMenu(false); mb.focus(); } });
+  matchMedia('(min-width: 860px)').addEventListener('change', e => { if (e.matches) setMenu(false); });
+
+  // ---- Current section in the nav ----------------------------------------------------------------
+  const links = [...document.querySelectorAll('.nav ul a')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    const so = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.getAttribute('href') === '#' + e.target.id ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current'));
+    }), { rootMargin: '-45% 0px -50% 0px' });
+    secs.forEach(x => so.observe(x));
+  }
+
+  // ---- Hero video pause / play ---------------------------------------------------------------------
+  const vt = document.querySelector('.vid-toggle');
+  let userPaused = false;
+  if (v && vt) {
+    if (reduce) { vt.setAttribute('aria-pressed', 'true'); vt.setAttribute('aria-label', 'Play video'); }
+    vt.addEventListener('click', () => {
+      if (v.paused) { userPaused = false; v.play().catch(() => {}); vt.setAttribute('aria-pressed', 'false'); vt.setAttribute('aria-label', 'Pause video'); }
+      else { userPaused = true; v.pause(); vt.setAttribute('aria-pressed', 'true'); vt.setAttribute('aria-label', 'Play video'); }
+    });
   }
 
   // ---- 3D vector space ----------------------------------------------------------------------------
@@ -437,7 +544,7 @@
     if (!g) return;
     let W = 0, H = 0, dpr = 1;
     const resize = () => {
-      dpr = Math.min(devicePixelRatio || 1, 1.5);
+      dpr = Math.min(devicePixelRatio || 1, innerWidth < 760 ? 1 : 1.5);
       W = cv.clientWidth; H = cv.clientHeight;
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -485,10 +592,10 @@
       px += (tx - px) * .04; py += (ty - py) * .04;
       const c = cam(t);
       g.clearRect(0, 0, W, H);
-      cv.style.opacity = (1 - .55 * Math.min(1, scrollY / (innerHeight * 1.2))).toFixed(3);
+      cv.style.opacity = (1 - (W < 760 ? .72 : .55) * Math.min(1, scrollY / (innerHeight * 1.2))).toFixed(3);
 
       // floor lattice, 1 m, fading with depth
-      const R = 30;
+      const R = W < 760 ? 18 : 30;
       for (let i = -R; i <= R; i++) {
         const major = i % 5 === 0;
         const al = major ? .07 : .035;
@@ -533,7 +640,7 @@
         g.fillStyle = `rgba(255,255,255,${.85 * k})`;
         g.beginPath(); g.arc(head[0], head[1], 2.4, 0, 6.29); g.fill();
         g.fillStyle = `rgba(255,255,255,${.4 * k})`;
-        g.fillText('P' + p.id, head[0] + 6, head[1] - 4);
+        if (W >= 760) g.fillText('P' + p.id, head[0] + 6, head[1] - 4);
       }
       // depth fog: the space falls away into matte black at the edges
       const fog = g.createRadialGradient(W / 2, H * .85, Math.min(W, H) * .25, W / 2, H * .85, Math.max(W, H) * .8);
