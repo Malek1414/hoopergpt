@@ -13,7 +13,7 @@
 
 <meta property="og:title" content="HooperGPT · The box score from one phone">
 <meta property="og:description" content="Auto-filmed games, player stats and live streams from a phone. Built in Berlin.">
-<meta property="og:image" content="media/clean-vs-boxes.jpg">
+<meta property="og:image" content="media/clean-vs-tracked.jpg">
 <style>
   :root {
     /* Matte black: graphite slabs, no gloss. Accent = the app's Theme.accent (printed parts' orange). */
@@ -181,6 +181,21 @@
   .rv { transform: perspective(1200px) translateZ(-120px) rotateX(6deg); }
   .rv.in { transform: none; }
   @media (prefers-reduced-motion: reduce) { .rv { transform: none; } .tilt, .tilt > * { transform: none !important; } }
+
+  /* ---- Human touches ---------------------------------------------------------------------------- */
+  .note { padding: 24px 0 48px; }
+  .note figure { max-width: 860px; }
+  .note blockquote { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.25; font-weight: 500; font-stretch: 100%;
+    letter-spacing: -.012em; color: var(--text); text-wrap: balance; }
+  .note figcaption { display: flex; align-items: center; gap: 14px; margin-top: 28px; font-size: 16px; line-height: 1.4; }
+  .note figcaption img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 10px 24px -8px rgba(0,0,0,.8); }
+  #team .card { min-height: 0; }
+  .person .face { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; display: grid; place-items: center;
+    background: #1C1C1F; color: var(--muted); font-size: 24px; letter-spacing: 0;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 12px 28px -10px rgba(0,0,0,.85); }
+  .person p { color: var(--muted); }
+  .wide-media img { object-position: center 35%; }
 </style>
 </head>
 <body>
@@ -236,7 +251,7 @@
         <div class="card step rv"><span class="mono n">04 · Stream</span><h3>It goes live</h3><p class="muted">A clean picture with a score overlay on YouTube, for family anywhere in the world.</p></div>
       </div>
       <div class="grid g2" style="margin-top:16px;">
-        <div class="wide-media rv"><img src="media/clean-vs-boxes.jpg" alt="The same shot twice: the clean picture viewers see, and the tracked view with the player boxed" loading="lazy" width="1320" height="1080"></div>
+        <div class="wide-media rv"><img src="media/clean-vs-tracked.jpg" alt="The same moment of a league game twice: the clean picture viewers see, and what HooperGPT sees, with every player and the ball tracked" loading="lazy" width="1320" height="1080"></div>
         <div class="wide-media rv"><img src="media/box-score.jpg" alt="Shot chart and per-player box score built automatically from a game" loading="lazy" width="1600" height="900"></div>
       </div>
     </div>
@@ -273,6 +288,16 @@
         <div class="card rv"><span class="mono faint">Players</span><h3>Your stats, your film</h3><p>Season stats and highlights that follow you from team to team. They're ready when a coach or college asks for them.</p></div>
         <div class="card rv"><span class="mono faint">Family &amp; friends</span><h3>Watch from anywhere</h3><p>A live stream with the score, for the people who can't be in the gym. That's why we built it.</p></div>
       </div>
+    </div>
+  </section>
+
+  <!-- WHY -->
+  <section id="why" class="note">
+    <div class="wrap">
+      <figure class="rv">
+        <blockquote>“When I moved to Germany, my family stopped seeing me play. All they got was the score in a text.”</blockquote>
+        <figcaption><img src="media/malek.jpg" alt="" width="56" height="56" loading="lazy"><span><b>Malek Hassan</b><br><span class="faint">Founder, still plays every week</span></span></figcaption>
+      </figure>
     </div>
   </section>
 
@@ -332,8 +357,8 @@
       <div class="mono k rv">Team</div>
       <h2 class="rv">We play the game, and we built every part of this.</h2>
       <div class="grid g2 who" style="margin-top:48px;">
-        <div class="card rv"><span class="mono faint">Founder</span><h3>Malek Hassan</h3><p>Basketball player and CODE student. Built the detection models, the iOS app, the live stats and the pan pod.</p></div>
-        <div class="card rv"><span class="mono faint">Product &amp; QA</span><h3>Sammy</h3><p>Checked every shot call by hand and built the evaluation set behind our numbers.</p></div>
+        <div class="card person rv"><img class="face" src="media/malek.jpg" alt="Malek Hassan on an outdoor court" width="72" height="72" loading="lazy"><span class="mono faint">Founder</span><h3>Malek Hassan</h3><p>Basketball player and CODE student. Built the detection models, the iOS app, the live stats and the pan pod.</p></div>
+        <div class="card person rv"><span class="face mono" aria-hidden="true">S</span><span class="mono faint">Product &amp; QA</span><h3>Sammy</h3><p>Checked every shot call by hand and built the evaluation set behind our numbers.</p></div>
       </div>
     </div>
   </section>
@@ -354,7 +379,7 @@
         <div class="kv">
           <div><div class="mono faint">Raising</div><div class="v">€100k</div></div>
           <div><div class="mono faint">Instrument</div><div class="v">Convertible</div></div>
-          <div><div class="mono faint">In 12 months</div><div class="v">60+ teams</div></div>
+          <div><div class="mono faint">In 12 months</div><div class="v">60 teams</div></div>
           <div><div class="mono faint">ARR goal</div><div class="v">€90k</div></div>
         </div>
       </div>
@@ -460,6 +485,7 @@
       px += (tx - px) * .04; py += (ty - py) * .04;
       const c = cam(t);
       g.clearRect(0, 0, W, H);
+      cv.style.opacity = (1 - .55 * Math.min(1, scrollY / (innerHeight * 1.2))).toFixed(3);
 
       // floor lattice, 1 m, fading with depth
       const R = 30;
