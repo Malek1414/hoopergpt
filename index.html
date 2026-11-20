@@ -349,7 +349,7 @@
         <div class="meta mono"><span>No camera to buy</span><span>Model runs on the phone</span><span>Live to YouTube</span></div>
       </div>
       <div class="hero-media">
-        <video id="heroVid" muted loop playsinline preload="none" poster="media/hero-shots.jpg" aria-label="Malek shooting on a lit night court, then a real league game, with HooperGPT tracking every player and the ball">
+        <video id="heroVid" muted loop playsinline webkit-playsinline disablepictureinpicture preload="metadata" poster="media/hero-shots.jpg" aria-label="Malek shooting on a lit night court, then a real league game, with HooperGPT tracking every player and the ball">
           <source src="media/hero-shots.mp4" type="video/mp4">
         </video>
         <span class="tag mono">The founder · tracked by HooperGPT</span>
@@ -544,7 +544,9 @@
   const v = document.getElementById('heroVid');
   if (!reduce && v) {
     v.preload = 'auto';
-    const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? (userPaused || v.play().catch(() => {})) : v.pause()), { threshold: 0.25 });
+    // If the phone blocks autoplay (Low Power Mode, data saver), show the play button so one tap starts it.
+    const blocked = () => { const t = document.querySelector('.vid-toggle'); if (t) { t.setAttribute('aria-pressed', 'true'); t.setAttribute('aria-label', 'Play video'); } };
+    const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? (userPaused || v.play().catch(blocked)) : v.pause()), { threshold: 0.25 });
     vio.observe(v);
   }
 
