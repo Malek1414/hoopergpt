@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HooperGPT · The box score from one phone</title>
 <meta name="description" content="HooperGPT films a basketball game on the phone you already own. It follows the ball, tracks every player, keeps the score and streams it live.">
-<meta name="theme-color" content="#0B0D12">
+<meta name="theme-color" content="#09090A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230B0D12%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22none%22 stroke=%22%23F0761E%22 stroke-width=%223%22/%3E%3C/svg%3E">
 
 <meta property="og:title" content="HooperGPT · The box score from one phone">
@@ -13,11 +16,12 @@
 <meta property="og:image" content="media/clean-vs-boxes.jpg">
 <style>
   :root {
-    --bg: #0B0D12; --panel: #12151C; --raised: #181C25; --line: #232936;
-    --text: #EEF0F4; --muted: #A3AABB; --faint: #7C8598;
-    --accent: #F0761E; --accent-deep: #9A4A12; --accent-wash: rgba(240,118,30,.08);
-    --sans: -apple-system, "SF Pro Display", Inter, "Segoe UI", Roboto, sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    /* Matte black: graphite slabs, no gloss. Accent = the app's Theme.accent (printed parts' orange). */
+    --bg: #09090A; --panel: #111113; --raised: #17171A; --line: rgba(255,255,255,.07);
+    --text: #ECEAE6; --muted: #9A9893; --faint: #6E6C68;
+    --accent: #EB6414; --accent-deep: #7A3510; --accent-wash: rgba(235,100,20,.07);
+    --sans: "Archivo", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --r-in: 12px; --r-out: 20px; --r-pill: 999px;
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
     --gutter: 24px; --max: 1200px;
@@ -146,9 +150,41 @@
     .rv { opacity: 1; transform: none; transition: none; }
     .btn, .btn .arr, .card, summary::after { transition: color .18s, background .18s, border-color .18s; transform: none !important; }
   }
+
+  /* ---- 3D vector space ------------------------------------------------------------------------ */
+  /* The page sits inside the space the app sees: a court-scaled floor grid in perspective, x/y/z
+     axes, players as points with velocity vectors. Drawn on one fixed canvas behind everything. */
+  #space { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
+  header, main, footer { position: relative; z-index: 1; }
+  header { z-index: 10; }
+  /* Matte finish: fine grain over everything, so black reads as a surface, not a screen. */
+  body::after { content: ""; position: fixed; inset: -50%; z-index: 20; pointer-events: none; opacity: .055;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  h1, h2, .logo { font-stretch: 118%; font-weight: 700; }
+  h1 { letter-spacing: -.035em; }
+  h2 { letter-spacing: -.025em; }
+  h3, .stat .v, .price .v, .kv .v { font-stretch: 112%; }
+  /* Slabs: matte graphite planes floating at depth. Soft long shadow, one faint top edge, no gloss. */
+  .card, .inv, .table, .hero-media, .wide-media {
+    background: linear-gradient(180deg, #141416 0%, #0F0F11 100%);
+    border: 1px solid rgba(255,255,255,.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 1px 0 rgba(0,0,0,.6),
+      0 24px 48px -24px rgba(0,0,0,.85), 0 60px 120px -60px rgba(0,0,0,.9); }
+  .card:hover { border-color: rgba(235,100,20,.35); }
+  th { background: #121214; }
+  .tilt-scene { perspective: 1400px; }
+  .tilt { transform-style: preserve-3d; will-change: transform;
+    transition: transform .5s var(--ease), border-color .3s var(--ease), box-shadow .5s var(--ease); }
+  .tilt > * { transform: translateZ(18px); }
+  .hero-media.tilt > * { transform: none; }
+  .hero-media.tilt .tag { transform: translateZ(40px); }
+  .rv { transform: perspective(1200px) translateZ(-120px) rotateX(6deg); }
+  .rv.in { transform: none; }
+  @media (prefers-reduced-motion: reduce) { .rv { transform: none; } .tilt, .tilt > * { transform: none !important; } }
 </style>
 </head>
 <body>
+<canvas id="space" aria-hidden="true"></canvas>
 <a href="#main" class="mono" style="position:absolute;left:-9999px;top:8px;" onfocus="this.style.left='8px'" onblur="this.style.left='-9999px'">Skip to content</a>
 
 <header id="top">
@@ -180,7 +216,7 @@
         <div class="meta mono"><span>No camera to buy</span><span>Model runs on the phone</span><span>Live to YouTube</span></div>
       </div>
       <div class="hero-media">
-        <video id="heroVid" muted loop playsinline preload="none" poster="media/hero-shots.jpg" aria-label="Malek shooting on a lit night court, with HooperGPT tracking him, the ball and the hoop">
+        <video id="heroVid" muted loop playsinline preload="none" poster="media/hero-shots.jpg" aria-label="Malek shooting on a lit night court, then a real league game, with HooperGPT tracking every player and the ball">
           <source src="media/hero-shots.mp4" type="video/mp4">
         </video>
         <span class="tag mono">The founder · tracked by HooperGPT</span>
@@ -365,6 +401,136 @@
     v.preload = 'auto';
     const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.25 });
     vio.observe(v);
+  }
+
+  // ---- 3D vector space ----------------------------------------------------------------------------
+  // World units are metres. A FIBA court (28 x 15) sits on the floor plane y = 0, inside a wider
+  // 1 m lattice. The camera orbits slowly, leans toward the pointer and dollies with scroll.
+  (() => {
+    const cv = document.getElementById('space');
+    const g = cv.getContext('2d');
+    if (!g) return;
+    let W = 0, H = 0, dpr = 1;
+    const resize = () => {
+      dpr = Math.min(devicePixelRatio || 1, 1.5);
+      W = cv.clientWidth; H = cv.clientHeight;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize(); addEventListener('resize', resize);
+
+    const ACC = '235,100,20';
+    let px = 0, py = 0, tx = 0, ty = 0;           // pointer, eased
+    addEventListener('pointermove', e => { tx = e.clientX / innerWidth - .5; ty = e.clientY / innerHeight - .5; }, { passive: true });
+
+    // Players: points moving on the court, each with a velocity vector (seeded, no randomness per load).
+    let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const P = Array.from({ length: 10 }, (_, i) => ({ x: (rnd() - .5) * 22, z: (rnd() - .5) * 11, a: rnd() * 6.28, sp: .6 + rnd() * .8, id: i + 1 }));
+
+    function cam(t) {
+      const scrollK = Math.min(1, scrollY / Math.max(1, document.body.scrollHeight - innerHeight));
+      const yaw = Math.sin(t * .00005) * .35 + px * .35 + scrollK * 1.4;
+      const pitch = .30 + py * .06 + scrollK * .10;
+      const dist = 21 - scrollK * 5;
+      return { yaw, pitch, dist, f: Math.max(W * .62, H) };
+    }
+    function proj(c, x, y, z) {
+      // rotate world by yaw (around y), then pitch (around x), then push back by dist
+      const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
+      let X = x * cy - z * sy, Z = x * sy + z * cy, Y = y;
+      const Y2 = Y * cp - Z * sp, Z2 = Y * sp + Z * cp + c.dist;
+      if (Z2 < .5) return null;
+      return [W / 2 + X * c.f / Z2, H * .80 - Y2 * c.f / Z2, Z2];
+    }
+    function line(c, a, b, style, w) {
+      const p = proj(c, ...a), q = proj(c, ...b);
+      if (!p || !q) return;
+      g.strokeStyle = style; g.lineWidth = w; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+    }
+    function poly(c, pts, style, w) {
+      g.strokeStyle = style; g.lineWidth = w; g.beginPath(); let started = false;
+      for (const pt of pts) { const p = proj(c, ...pt); if (!p) { started = false; continue; } started ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); started = true; }
+      g.stroke();
+    }
+    const arc = (cx, cz, r, a0, a1, n = 40) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + Math.cos(a) * r, 0, cz + Math.sin(a) * r]; });
+
+    let last = 0;
+    function frame(t) {
+      const dt = Math.min(50, t - last) / 1000; last = t;
+      px += (tx - px) * .04; py += (ty - py) * .04;
+      const c = cam(t);
+      g.clearRect(0, 0, W, H);
+
+      // floor lattice, 1 m, fading with depth
+      const R = 30;
+      for (let i = -R; i <= R; i++) {
+        const major = i % 5 === 0;
+        const al = major ? .07 : .035;
+        line(c, [i, 0, -R], [i, 0, R], `rgba(255,255,255,${al})`, 1);
+        line(c, [-R, 0, i], [R, 0, i], `rgba(255,255,255,${al})`, 1);
+      }
+      // the court: 28 x 15, centre circle, three-point arcs (6.75 m), keys
+      const CL = `rgba(${ACC},.24)`;
+      poly(c, [[-14, 0, -7.5], [14, 0, -7.5], [14, 0, 7.5], [-14, 0, 7.5], [-14, 0, -7.5]], CL, 1.2);
+      line(c, [0, 0, -7.5], [0, 0, 7.5], CL, 1.2);
+      poly(c, arc(0, 0, 1.8, 0, Math.PI * 2), CL, 1.2);
+      for (const sgn of [-1, 1]) {
+        const hx = sgn * (14 - 1.575);
+        poly(c, arc(hx, 0, 6.75, sgn > 0 ? Math.PI / 2 + .23 : -Math.PI / 2 + .23, sgn > 0 ? Math.PI * 1.5 - .23 : Math.PI / 2 - .23), CL, 1.2);
+        poly(c, [[sgn * 14, 0, -2.45], [sgn * 8.2, 0, -2.45], [sgn * 8.2, 0, 2.45], [sgn * 14, 0, 2.45]], CL, 1.2);
+        // hoop at 3.05 m: a vertical vector from the floor, then the rim
+        line(c, [hx, 0, 0], [hx, 3.05, 0], 'rgba(255,255,255,.18)', 1);
+        poly(c, arc(hx, 0, .23, 0, Math.PI * 2, 16).map(([x, , z]) => [x, 3.05, z]), `rgba(${ACC},.7)`, 1.4);
+      }
+      // axes at the court's corner, with ticks every metre
+      const O = [-14, 0, 7.5];
+      const ax = [[[5, 0, 0], 'x'], [[0, 5, 0], 'y'], [[0, 0, -5], 'z']];
+      g.font = '600 11px "JetBrains Mono", monospace';
+      for (const [d, name] of ax) {
+        const end = [O[0] + d[0], O[1] + d[1], O[2] + d[2]];
+        line(c, O, end, 'rgba(255,255,255,.4)', 1.2);
+        const p = proj(c, ...end); if (p) { g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText(name, p[0] + 6, p[1] - 6); }
+      }
+      // players: points with velocity vectors and their tag
+      for (const p of P) {
+        if (!reduce) {
+          p.a += (Math.sin(t * .0003 + p.id) * .6) * dt;
+          p.x += Math.cos(p.a) * p.sp * dt; p.z += Math.sin(p.a) * p.sp * dt;
+          if (Math.abs(p.x) > 13) p.a = Math.PI - p.a, p.x = Math.sign(p.x) * 13;
+          if (Math.abs(p.z) > 7) p.a = -p.a, p.z = Math.sign(p.z) * 7;
+        }
+        const base = proj(c, p.x, 0, p.z), head = proj(c, p.x, 1.9, p.z);
+        if (!base || !head) continue;
+        const k = Math.max(.25, Math.min(1, 30 / base[2]));
+        line(c, [p.x, 0, p.z], [p.x, 1.9, p.z], `rgba(255,255,255,${.22 * k})`, 1);
+        line(c, [p.x, 0, p.z], [p.x + Math.cos(p.a) * p.sp * 2.2, 0, p.z + Math.sin(p.a) * p.sp * 2.2], `rgba(${ACC},${.75 * k})`, 1.4);
+        g.fillStyle = `rgba(255,255,255,${.85 * k})`;
+        g.beginPath(); g.arc(head[0], head[1], 2.4, 0, 6.29); g.fill();
+        g.fillStyle = `rgba(255,255,255,${.4 * k})`;
+        g.fillText('P' + p.id, head[0] + 6, head[1] - 4);
+      }
+      // depth fog: the space falls away into matte black at the edges
+      const fog = g.createRadialGradient(W / 2, H * .85, Math.min(W, H) * .25, W / 2, H * .85, Math.max(W, H) * .8);
+      fog.addColorStop(0, 'rgba(9,9,10,0)'); fog.addColorStop(1, 'rgba(9,9,10,.92)');
+      g.fillStyle = fog; g.fillRect(0, 0, W, H);
+      if (!reduce && !document.hidden) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !reduce) { last = performance.now(); requestAnimationFrame(frame); } });
+    if (reduce) addEventListener('scroll', () => requestAnimationFrame(frame), { passive: true });
+  })();
+
+  // ---- Slabs tilt toward the pointer, like planes in the space ------------------------------------
+  if (!reduce && matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.card, .hero-media').forEach(el => {
+      el.classList.add('tilt'); el.parentElement.classList.add('tilt-scene');
+      el.addEventListener('pointermove', e => {
+        const r = el.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        el.style.transform = `rotateY(${x * 8}deg) rotateX(${-y * 8}deg) translateZ(10px)`;
+      });
+      el.addEventListener('pointerleave', () => { el.style.transform = ''; });
+    });
   }
 </script>
 </body>
