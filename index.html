@@ -180,10 +180,10 @@
         <div class="meta mono"><span>No camera to buy</span><span>Model runs on the phone</span><span>Live to YouTube</span></div>
       </div>
       <div class="hero-media">
-        <video id="heroVid" muted loop playsinline preload="none" poster="media/hero-dunk.jpg" aria-label="Malek dunking on a lit night court, then HooperGPT tracking every player in a real game">
-          <source src="media/hero-dunk.mp4" type="video/mp4">
+        <video id="heroVid" muted loop playsinline preload="none" poster="media/hero-shots.jpg" aria-label="Malek shooting on a lit night court, with HooperGPT tracking him, the ball and the hoop">
+          <source src="media/hero-shots.mp4" type="video/mp4">
         </video>
-        <span class="tag mono" id="heroTag">The founder, on court</span>
+        <span class="tag mono">The founder · tracked by HooperGPT</span>
       </div>
     </div>
   </section>
@@ -365,12 +365,6 @@
     v.preload = 'auto';
     const vio = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.25 });
     vio.observe(v);
-    // The last 5 s of the header video are the tracked game
-    const tag = document.getElementById('heroTag');
-    v.addEventListener('timeupdate', () => {
-      const t = v.currentTime < 9.6 ? 'The founder, on court' : 'Real game · every player tracked';
-      if (tag.textContent !== t) tag.textContent = t;
-    });
   }
 </script>
 </body>
